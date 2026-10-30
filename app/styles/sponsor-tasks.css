@@ -1,20 +1,4 @@
-/* Keep the sponsor's next action and task cards easy to scan on wide screens. */
-.sponsor-portal-page .sponsor-portal-next-action {
-  width: 100%;
-  min-width: 0;
-  min-height: 104px;
-  margin: 0;
-  padding: 15px 17px;
-  gap: 11px;
-  border-radius: 12px;
-  container: sponsor-next-action / inline-size;
-}
-.sponsor-portal-page .sponsor-portal-next-action-icon { width: 40px; height: 40px; border-radius: 11px; }
-.sponsor-portal-page .sponsor-portal-next-action-copy { gap: 2px; }
-.sponsor-portal-page .sponsor-portal-next-action-copy > span { font-size: 10px; }
-.sponsor-portal-page .sponsor-portal-next-action-copy strong { font-size: 13px; }
-.sponsor-portal-page .sponsor-portal-next-action-copy small { font-size: 11px; }
-.sponsor-portal-page .sponsor-portal-next-action > .btn { min-height: 36px; font-size: 11px; }
+/* Keep the sponsor's task cards easy to scan on wide screens. */
 .sponsor-portal-task-list > .sponsor-portal-task-content {
   grid-column: 1 / -1;
   width: min(100%, 1240px);
@@ -45,19 +29,14 @@
 .sponsor-portal-task-list .sponsor-portal-assigned-task .sponsor-portal-review-copy > b { color:#263d52; font-size:12px; line-height:1.4; }
 .sponsor-portal-task-list .sponsor-portal-assigned-task .sponsor-portal-review-copy > small { font-size:10px; line-height:1.4; }
 @media (max-width: 760px) {
-  .sponsor-portal-page .sponsor-portal-next-action { width:100%; min-width:0; margin:0; }
   .sponsor-portal-task-list > .sponsor-portal-task-content { grid-template-columns:minmax(0, 1fr); gap:10px; }
   .sponsor-portal-task-list .sponsor-portal-benefit-task.sponsor-portal-assigned-task { min-height:90px; padding:12px; }
-}
-@media (min-width: 761px) and (max-width: 1180px) {
-  .sponsor-portal-page .sponsor-portal-next-action { width:100%; }
 }
 @media (max-width: 700px) {
   .event-report-metrics-panel > .event-report-metrics-empty { padding:12px 16px 8px; }
   .event-report-metrics-panel > .event-report-metrics-footer { padding:8px 16px 16px; }
 }
-.sponsor-portal-event-top-grid .sponsor-portal-overview-grid .sponsor-portal-contact b,
-.sponsor-portal-event-top-grid .sponsor-portal-overview-grid .sponsor-portal-next-action-copy > span {
+.sponsor-portal-event-top-grid .sponsor-portal-overview-grid .sponsor-portal-contact b {
   font-family:inherit;
   font-size:10px;
   font-weight:700;
@@ -65,23 +44,16 @@
   letter-spacing:0;
   text-transform:none;
 }
-.sponsor-portal-event-top-grid .sponsor-portal-overview-grid .sponsor-portal-contact strong,
-.sponsor-portal-event-top-grid .sponsor-portal-overview-grid .sponsor-portal-next-action-copy strong {
+.sponsor-portal-event-top-grid .sponsor-portal-overview-grid .sponsor-portal-contact strong {
   font-family:inherit;
   font-size:13px;
   font-weight:700;
   line-height:1.3;
 }
 .sponsor-portal-event-top-grid .sponsor-portal-overview-grid .sponsor-portal-contact a,
-.sponsor-portal-event-top-grid .sponsor-portal-overview-grid .sponsor-portal-contact div > span,
-.sponsor-portal-event-top-grid .sponsor-portal-overview-grid .sponsor-portal-next-action-copy small {
+.sponsor-portal-event-top-grid .sponsor-portal-overview-grid .sponsor-portal-contact div > span {
   font-family:inherit;
   font-size:11px;
   font-weight:400;
   line-height:1.4;
-}
-
-@container sponsor-next-action (max-width: 360px) {
-  .sponsor-portal-next-action-copy { grid-column:2 / -1; grid-row:1; }
-  .sponsor-portal-next-action > .btn { grid-column:2 / -1; grid-row:2; justify-self:start; }
 }

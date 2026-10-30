@@ -218,16 +218,6 @@
 .sponsor-portal-back-link { display: inline-flex; margin: 0 0 17px; color: #687887; font-size: 11px; font-weight: 650; text-decoration: none; }
 .sponsor-portal-back-link:hover { color: var(--accent-strong); }
 .sponsor-portal-tabs { display: flex; gap: 24px; margin: 20px 0 14px; border-bottom: 1px solid #e3e9ed; }
-.sponsor-portal-next-action { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:11px; margin:0 0 14px; padding:11px 14px; border:1px solid #e5ebef; border-radius:12px; background:#fff; box-shadow:0 3px 12px rgba(24,42,60,.025); }
-.sponsor-portal-next-action.is-actionable { border-color:color-mix(in srgb, var(--accent) 24%, #e5ebef); background:color-mix(in srgb, var(--accent) 2.5%, white); }
-.sponsor-portal-next-action-icon { display:grid; width:32px; height:32px; place-items:center; border-radius:10px; background:#f4f6f7; color:#718394; }
-.sponsor-portal-next-action.is-actionable .sponsor-portal-next-action-icon { background:color-mix(in srgb, var(--accent) 12%, white); color:var(--accent-strong); }
-.sponsor-portal-next-action-copy { display:grid; gap:2px; min-width:0; }
-.sponsor-portal-next-action-copy > span { color:#89939b; font-size:10px; font-weight:750; letter-spacing:.07em; text-transform:uppercase; }
-.sponsor-portal-next-action.is-actionable .sponsor-portal-next-action-copy > span { color:var(--accent-strong); }
-.sponsor-portal-next-action-copy strong { color:#2e4051; font-size:13px; }
-.sponsor-portal-next-action-copy small { overflow:hidden; color:#718092; font-size:11px; line-height:1.4; text-overflow:ellipsis; }
-.sponsor-portal-next-action > .btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:36px; padding:0 11px; white-space:nowrap; font-size:11px; }
 .sponsor-portal-tabs button { padding: 0 1px 11px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #7c8995; font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
 .sponsor-portal-tabs button.active { border-color: var(--accent); color: var(--accent-strong); }
 .sponsor-portal-tab-unread-dot { display:inline-block; width:7px; height:7px; margin-left:7px; border-radius:50%; background:#e5484d; box-shadow:0 0 0 2px #fff; vertical-align:middle; }
@@ -265,18 +255,17 @@
 .sponsor-portal-event-card-stats .sponsor-portal-benefit-count-badge b { color:inherit; font-size:12px; }
 .sponsor-portal-event-card-stats .sponsor-portal-benefit-count-badge small { color:inherit; font-size:10px; font-weight:650; }
 .sponsor-portal-event-empty { margin-top:0; }
-.sponsor-portal-overview-grid { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(220px,.9fr); grid-template-rows:minmax(104px,auto); align-items:stretch; gap:8px; width:min(68%,850px); margin:0 0 12px; }
+.sponsor-portal-overview-grid { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(104px,auto); align-items:stretch; gap:8px; width:100%; margin:0 0 12px; }
 .sponsor-portal-overview-grid .sponsor-portal-contact { min-width:0; min-height:104px; align-items:center; margin:0; padding:12px 15px; gap:10px; }
 .sponsor-portal-overview-grid .sponsor-portal-contact > .settings-section-icon { width:40px; height:40px; border-radius:11px; }
 .sponsor-portal-overview-grid .sponsor-portal-contact > div { gap:4px; }
 .sponsor-portal-overview-grid .sponsor-portal-contact b { font-size:10px; }
 .sponsor-portal-overview-grid .sponsor-portal-contact strong { font-size:13px; }
 .sponsor-portal-overview-grid .sponsor-portal-contact a,.sponsor-portal-overview-grid .sponsor-portal-contact div > span { font-size:11px; }
-.sponsor-portal-overview-grid .sponsor-portal-next-action { width:100%; min-width:0; min-height:104px; margin:0; padding:12px 15px; }
 .sponsor-portal-event-top-grid { display:grid; grid-template-columns:minmax(0,.95fr) minmax(0,1.3fr); align-items:center; gap:30px; margin-bottom:14px; }
 .sponsor-portal-event-title-area { min-width:0; }
 .sponsor-portal-event-top-grid .sponsor-portal-event-heading { margin:0; }
-.sponsor-portal-event-top-grid .sponsor-portal-overview-grid { grid-template-columns:minmax(0,1.55fr) minmax(220px,.9fr); width:100%; gap:8px; margin:0; }
+.sponsor-portal-event-top-grid .sponsor-portal-overview-grid { grid-template-columns:minmax(0,1fr); width:100%; gap:8px; margin:0; }
 .sponsor-portal-event-top-grid .sponsor-portal-assignment-select { margin:10px 0 0; }
 .sponsor-portal-content-event { padding-top:26px; }
 .sponsor-portal-content-event .sponsor-portal-back-link { margin-bottom:10px; }
@@ -314,13 +303,11 @@
   .sponsor-portal-event-card { padding:15px; }
   .sponsor-portal-event-list-tabs { gap:2px; margin-top:19px; }
   .sponsor-portal-event-list-tabs button { gap:6px; padding-right:9px; padding-left:9px; font-size:12px; }
-  .sponsor-portal-next-action { grid-template-columns:auto minmax(0,1fr); gap:10px; padding:11px; }
-  .sponsor-portal-next-action > .btn { grid-column:2; justify-self:start; }
   .sponsor-portal-dashboard { padding:15px; }
   .sponsor-portal-dashboard-heading { align-items:flex-start; flex-direction:column; }
   .sponsor-portal-dashboard-metrics { grid-template-columns:1fr; gap:7px; }
   .sponsor-portal-dashboard-metrics article { padding:10px 11px; }
-.sponsor-portal-overview-grid { grid-template-columns:minmax(0,1fr); grid-template-rows:repeat(2,minmax(104px,auto)); width:100%; gap:8px; }
+  .sponsor-portal-overview-grid { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(104px,auto); width:100%; gap:8px; }
   .sponsor-portal-event-top-grid { gap:10px; margin-bottom:11px; }
   .sponsor-portal-event-top-grid .sponsor-portal-overview-grid { grid-template-columns:minmax(0,1fr); }
   .sponsor-portal-content-event { padding-top:20px; }

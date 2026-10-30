@@ -63,29 +63,6 @@ export function SponsorPortal({ eventId, demoMode = false, view = "dashboard" }:
   const hasTaskContent = activeManualTasks.length > 0 || partnershipBenefits.some((benefit) => benefit.units.some((unit) => unit.tasks.length > 0));
   const hasBenefitContent = (activePartnership?.benefits.length ?? 0) > 0;
   const hasSignedContract = activePartnership?.contracts.some((contract) => contract.signature_status === "signed") ?? false;
-  const sponsorActionTasks = [
-    ...activeManualTasks.map((task) => ({ task, benefitName: undefined as string | undefined })),
-    ...partnershipBenefits.flatMap((benefit) => benefit.units.flatMap((unit) => unit.tasks.map((task) => ({ task, benefitName: benefit.title })))),
-  ].filter(({ task }) => {
-    if (isCompletedSponsorTask(task) || !task.ready) return false;
-    return task.completion_type === "sponsor_upload" || task.completion_type === "sponsor_approval" || task.requires_sponsor_approval;
-  }).sort((a, b) => {
-    const aDue = a.task.due_at ?? "9999-12-31";
-    const bDue = b.task.due_at ?? "9999-12-31";
-    return aDue.localeCompare(bDue);
-  });
-  const contractToSign = activePartnership?.contracts.find((contract) => contract.signature_status === "pending_sponsor" && activeEvent?.signature_addon_enabled);
-  const nextSponsorAction = contractToSign
-    ? { tab: "contract" as const, title: "Vertrag prüfen und unterschreiben", description: contractToSign.title || "Sponsoringvertrag", due: "" }
-    : sponsorActionTasks[0]
-      ? {
-          tab: "tasks" as const,
-          title: sponsorActionTasks[0].task.completion_type === "sponsor_upload" ? "Datei bereitstellen" : "Entwurf freigeben",
-          description: sponsorActionTasks[0].task.title,
-          due: sponsorActionTasks[0].task.due_at ? `Fällig am ${formatPortalDate(sponsorActionTasks[0].task.due_at)}` : "",
-        }
-      : null;
-  const waitingForOrganizerSignature = !nextSponsorAction && activePartnership?.contracts.some((contract) => contract.signature_status === "pending_organizer");
   const canShowBenefits = hasSignedContract && hasBenefitContent;
   const canShowTasks = hasTaskContent;
   const today = new Date();
@@ -359,11 +336,6 @@ export function SponsorPortal({ eventId, demoMode = false, view = "dashboard" }:
               {activePartnership && activeEvent.sponsor_assignments.length > 1 && <label className="sponsor-portal-assignment-select"><span>Sponsor-Zuordnung</span><select value={activePartnership.sponsor_id} onChange={(event) => setActiveSponsorId(event.target.value)}>{activeEvent.sponsor_assignments.map((assignment) => <option key={assignment.sponsor_id} value={assignment.sponsor_id}>{assignment.sponsor_name}</option>)}</select></label>}
             </div>
             <div className="sponsor-portal-overview-grid">
-              {activePartnership && <section className={`sponsor-portal-next-action${nextSponsorAction ? " is-actionable" : " is-waiting"}`} aria-live="polite">
-                <span className="sponsor-portal-next-action-icon"><Icon name={nextSponsorAction ? "arrow" : waitingForOrganizerSignature ? "clock" : "check"} size={17}/></span>
-                <div className="sponsor-portal-next-action-copy"><span>Als Nächstes von dir</span><strong>{nextSponsorAction?.title ?? (waitingForOrganizerSignature ? "Der Veranstalter unterschreibt" : "Aktuell ist nichts von dir offen")}</strong><small>{nextSponsorAction ? [nextSponsorAction.description, nextSponsorAction.due].filter(Boolean).join(" · ") : waitingForOrganizerSignature ? "Deine Unterschrift liegt vor. Du erhältst hier den aktuellen Stand." : "Offene Unterschriften, Freigaben oder Uploads werden hier angezeigt."}</small></div>
-                {nextSponsorAction && <button className="btn" type="button" onClick={() => selectTab(nextSponsorAction.tab)}>{nextSponsorAction.tab === "contract" ? "Zum Vertrag" : "Zu den Aufgaben"}<Icon name="arrow" size={14}/></button>}
-              </section>}
               <section className="sponsor-portal-contact"><span className="settings-section-icon"><Icon name="users" size={16}/></span><div><b>Deine Ansprechperson</b>{[activeEvent.contact_first_name, activeEvent.contact_last_name].filter(Boolean).join(" ") && <strong>{[activeEvent.contact_first_name, activeEvent.contact_last_name].filter(Boolean).join(" ")}</strong>}{activeEvent.contact_email && <a href={`mailto:${activeEvent.contact_email}`}>{activeEvent.contact_email}</a>}{activeEvent.contact_phone && <a href={`tel:${activeEvent.contact_phone.replace(/[^\d+]/g, "")}`}>{activeEvent.contact_phone}</a>}{![activeEvent.contact_first_name, activeEvent.contact_last_name, activeEvent.contact_email, activeEvent.contact_phone].some(Boolean) && <span>Kontaktdaten werden noch ergänzt.</span>}</div></section>
             </div>
           </div>
