@@ -36,9 +36,9 @@ export async function GET(_request: Request, context: Context) {
       .select("amount_cents, currency").eq("singleton", true).single();
     if (priceError) throw priceError;
     const { data: paidPayment, error: paymentError } = await admin.from("contract_signature_payments")
-      .select("id").eq("contract_id", id).eq("payment_status", "paid").limit(1).maybeSingle();
+      .select("signing_document_id").eq("contract_id", id).eq("payment_status", "paid").limit(1).maybeSingle();
     if (paymentError) throw paymentError;
-    return NextResponse.json({ amountCents: price.amount_cents, currency: price.currency, paid: Boolean(paidPayment) }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ amountCents: price.amount_cents, currency: price.currency, paidSigningDocumentId: paidPayment?.signing_document_id ?? null }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Der Preis für die Vertragszeichnung konnte nicht geladen werden." }, { status: 503 });
   }
@@ -60,7 +60,7 @@ export async function POST(request: Request, context: Context) {
     const { data: ownsEvent, error: ownsError } = await supabase.rpc("owns_event", { target_event_id: contract.event_id });
     if (ownsError) throw ownsError;
     if (!ownsEvent) return NextResponse.json({ error: "Du hast keinen Zugriff auf diesen Vertrag." }, { status: 403 });
-    if (!(["draft", "pending_sponsor", "pending_organizer"].includes(contract.signature_status)) || !contract.signing_document_id) {
+    if (!(["draft", "pending_sponsor", "pending_organizer"].includes(contract.signature_status)) || (contract.signature_status !== "draft" && !contract.signing_document_id)) {
       return NextResponse.json({ error: "Der Vertrag ist nicht zur Zahlung bereit." }, { status: 409 });
     }
     const { data: enabled, error: entitlementError } = await admin.rpc("event_signature_addon_enabled", { target_event_id: contract.event_id });
@@ -86,7 +86,12 @@ export async function POST(request: Request, context: Context) {
     if (reservationError) throw reservationError;
     const reservation = Array.isArray(reservationData) ? reservationData[0] : reservationData;
     if (!reservation?.payment_id) throw new Error("Payment reservation could not be created");
-    if (reservation.payment_status === "paid") return NextResponse.json({ alreadyPaid: true });
+    if (reservation.payment_status === "paid") {
+      if (reservation.signing_document_id !== payload.signingDocumentId) {
+        return NextResponse.json({ error: "Die Gebühr wurde bereits für eine andere PDF dieses Vertrags bezahlt." }, { status: 409 });
+      }
+      return NextResponse.json({ alreadyPaid: true });
+    }
 
     let sessionId = reservation.stripe_checkout_session_id as string | null;
     let checkoutUrl = reservation.stripe_checkout_url as string | null;
@@ -107,7 +112,13 @@ export async function POST(request: Request, context: Context) {
         });
         if (nextError) throw nextError;
         const next = Array.isArray(nextData) ? nextData[0] : nextData;
-        if (!next?.payment_id || next.payment_status === "paid") return NextResponse.json({ alreadyPaid: true });
+        if (!next?.payment_id) throw new Error("Payment reservation could not be created");
+        if (next.payment_status === "paid") {
+          if (next.signing_document_id !== payload.signingDocumentId) {
+            return NextResponse.json({ error: "Die Gebühr wurde bereits für eine andere PDF dieses Vertrags bezahlt." }, { status: 409 });
+          }
+          return NextResponse.json({ alreadyPaid: true });
+        }
         reservation.payment_id = next.payment_id;
         reservation.amount_cents = next.amount_cents;
         reservation.signing_document_id = next.signing_document_id;
