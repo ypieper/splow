@@ -20,14 +20,13 @@ export async function GET(request: Request) {
 
   try {
     const admin = createAdminClient();
-    const { data: memberships, error: membershipError } = await admin.from("sponsor_account_members").select("account_id").eq("user_id", user.id);
-    if (membershipError) throw membershipError;
-    const accountIds = (memberships ?? []).map((item) => item.account_id);
-    if (!accountIds.length) return NextResponse.json({ profileRequired, profileName, events: [] }, { headers: { "Cache-Control": "no-store" } });
-
-    const { data: allAssignments, error: assignmentError } = await admin.from("sponsor_event_accounts").select("event_id, sponsor_id, account_id").in("account_id", accountIds);
+    let assignmentQuery = admin.from("sponsor_event_accounts")
+      .select("event_id, sponsor_id, account_id, sponsor_accounts!inner(sponsor_account_members!inner(user_id))")
+      .eq("sponsor_accounts.sponsor_account_members.user_id", user.id);
+    if (requestedEventId) assignmentQuery = assignmentQuery.eq("event_id", requestedEventId);
+    const { data: allAssignments, error: assignmentError } = await assignmentQuery;
     if (assignmentError) throw assignmentError;
-    const assignments = (allAssignments ?? []).filter((assignment) => !requestedEventId || assignment.event_id === requestedEventId);
+    const assignments = (allAssignments ?? []).map(({ event_id, sponsor_id, account_id }) => ({ event_id, sponsor_id, account_id }));
     if (!assignments.length) return NextResponse.json({ profileRequired, profileName, events: [] }, { headers: { "Cache-Control": "no-store" } });
 
     const eventIds = [...new Set(assignments.map((item) => item.event_id))];
@@ -51,22 +50,25 @@ export async function GET(request: Request) {
         if (!allowedAssignments.has(`${contract.event_id}:${contract.sponsor_id}`) || (!contract.signed_at && contract.signature_status !== "signed")) continue;
         signedVolumes.set(contract.event_id, (signedVolumes.get(contract.event_id) ?? 0) + (contract.value_cents ?? 0));
       }
-      const events = await Promise.all((eventsResult.data ?? []).map(async (event) => {
+      const eventsWithPaths = eventsResult.data ?? [];
+      const logoPaths = eventsWithPaths.flatMap((event) => event.organizer_logo_path ? [event.organizer_logo_path] : []);
+      const { data: signedLogos } = logoPaths.length
+        ? await admin.storage.from("sponsorproof-files").createSignedUrls(logoPaths, 60 * 60 * 24)
+        : { data: [] };
+      const logoUrlByPath = new Map((signedLogos ?? []).map((item) => [item.path, item.signedUrl]));
+      const events = eventsWithPaths.map((event) => {
         const { organizer_logo_path, ...eventData } = event;
-        const { data: logo } = organizer_logo_path
-          ? await admin.storage.from("sponsorproof-files").createSignedUrl(organizer_logo_path, 60 * 60 * 24)
-          : { data: null };
         return {
           ...eventData,
-          organizer_logo_url: logo?.signedUrl ?? null,
+          organizer_logo_url: organizer_logo_path ? logoUrlByPath.get(organizer_logo_path) ?? null : null,
           benefit_count: benefitCounts.get(event.id) ?? 0,
           signed_volume_cents: signedVolumes.get(event.id) ?? 0,
         };
-      }));
+      });
       return NextResponse.json({ profileRequired, profileName, events }, { headers: { "Cache-Control": "no-store" } });
     }
-    const [eventsResult, sponsorsResult, contractsResult, taskResult, benefitResult, reportMetricsResult, invoiceUpdatesResult, documentUpdatesResult] = await Promise.all([
-      admin.from("events").select("id, organization_id, title, start_date, end_date, location, organizer_logo_path, contact_first_name, contact_last_name, contact_email, contact_phone").in("id", eventIds),
+    const eventsPromise = admin.from("events").select("id, organization_id, title, start_date, end_date, location, organizer_logo_path, contact_first_name, contact_last_name, contact_email, contact_phone").in("id", eventIds).then((result) => result);
+    const relatedResultsPromise = Promise.all([
       admin.from("sponsors").select("id, name").in("id", sponsorIds),
       admin.from("contracts").select("id, event_id, sponsor_id, title, value_cents, signature_status, sponsor_signed_at, organizer_signed_at, signed_at, signing_document_id").in("event_id", eventIds),
       admin.from("tasks").select("id, event_id, sponsor_id, sponsor_name, benefit_id, title, due_at, status, source, workflow_order, workflow_instance, completion_type, requires_sponsor_approval, assigned_to_sponsor, sponsor_approval_status, sponsor_approved_at").in("event_id", eventIds),
@@ -74,8 +76,20 @@ export async function GET(request: Request) {
       admin.from("event_report_metrics").select("id, event_id, metric_name, metric_value").in("event_id", eventIds).order("created_at", { ascending: true }),
       admin.from("event_sponsor_invoices").select("id, event_id, sponsor_id, updated_at, sponsor_visible").in("event_id", eventIds).in("sponsor_id", sponsorIds),
       admin.from("sponsor_documents").select("id, event_id, sponsor_id, uploaded_at, uploaded_by_type, document_role, published_to_sponsor, status").in("event_id", eventIds).in("sponsor_id", sponsorIds),
+      Promise.all(eventIds.map(async (eventId) => {
+        const { data, error } = await admin.rpc("event_signature_addon_enabled", { target_event_id: eventId });
+        if (error) throw error;
+        return data === true ? eventId : null;
+      })),
     ]);
-    if (eventsResult.error || sponsorsResult.error || contractsResult.error || taskResult.error || benefitResult.error || reportMetricsResult.error || invoiceUpdatesResult.error || documentUpdatesResult.error) throw eventsResult.error ?? sponsorsResult.error ?? contractsResult.error ?? taskResult.error ?? benefitResult.error ?? reportMetricsResult.error ?? invoiceUpdatesResult.error ?? documentUpdatesResult.error;
+    const eventsResult = await eventsPromise;
+    if (eventsResult.error) throw eventsResult.error;
+    const organizationIds = [...new Set((eventsResult.data ?? []).flatMap((event) => event.organization_id ? [event.organization_id] : []))];
+    const organizationsPromise = organizationIds.length
+      ? admin.from("organizations").select("id, name").in("id", organizationIds)
+      : Promise.resolve({ data: [], error: null });
+    const [sponsorsResult, contractsResult, taskResult, benefitResult, reportMetricsResult, invoiceUpdatesResult, documentUpdatesResult, signatureChecks] = await relatedResultsPromise;
+    if (sponsorsResult.error || contractsResult.error || taskResult.error || benefitResult.error || reportMetricsResult.error || invoiceUpdatesResult.error || documentUpdatesResult.error) throw sponsorsResult.error ?? contractsResult.error ?? taskResult.error ?? benefitResult.error ?? reportMetricsResult.error ?? invoiceUpdatesResult.error ?? documentUpdatesResult.error;
     const reportMetricsByEvent = new Map<string, Array<{ id: string; name: string; value: string }>>();
     for (const metric of reportMetricsResult.data ?? []) {
       reportMetricsByEvent.set(metric.event_id, [...(reportMetricsByEvent.get(metric.event_id) ?? []), { id: metric.id, name: metric.metric_name, value: metric.metric_value }]);
@@ -87,10 +101,7 @@ export async function GET(request: Request) {
       (document.uploaded_by_type === "sponsor" || document.document_role === "signed_contract" || document.published_to_sponsor) &&
       (document.uploaded_by_type === "organizer" || document.document_role === "signed_contract")
     );
-    const organizationIds = [...new Set((eventsResult.data ?? []).flatMap((event) => event.organization_id ? [event.organization_id] : []))];
-    const { data: organizations, error: organizationsError } = organizationIds.length
-      ? await admin.from("organizations").select("id, name").in("id", organizationIds)
-      : { data: [], error: null };
+    const { data: organizations, error: organizationsError } = await organizationsPromise;
     if (organizationsError) throw organizationsError;
     const organizationNames = new Map((organizations ?? []).map((organization) => [organization.id, organization.name]));
     const allowed = new Set(assignments.map((item) => `${item.event_id}:${item.sponsor_id}`));
@@ -109,17 +120,19 @@ export async function GET(request: Request) {
     const benefits = (benefitResult.data ?? []).filter((benefit) => allowed.has(`${benefit.event_id}:${benefit.sponsor_id}`));
     const taskIds = tasks.map((task) => task.id);
     const sponsorUploadTaskIds = new Set(tasks.filter((task) => task.completion_type === "sponsor_upload").map((task) => task.id));
-    const evidenceResult = taskIds.length
-      ? await admin.from("evidence_files").select("id, event_id, task_id, benefit_id, file_name, storage_path, content_type, sponsor_visible, created_at").in("task_id", taskIds)
-      : { data: [], error: null };
-    if (evidenceResult.error) throw evidenceResult.error;
-    const evidenceRows = evidenceResult.data ?? [];
     const allSponsorApprovalTasks = tasks.filter((task) => task.completion_type === "sponsor_approval" || task.requires_sponsor_approval);
     const approvalTaskIds = allSponsorApprovalTasks.map((task) => task.id);
-    const feedbackResult = approvalTaskIds.length
-      ? await admin.from("sponsor_task_feedback").select("task_id, evidence_file_id, created_at").in("task_id", approvalTaskIds).eq("decision", "changes_requested")
-      : { data: [], error: null };
+    const [evidenceResult, feedbackResult] = await Promise.all([
+      taskIds.length
+        ? admin.from("evidence_files").select("id, event_id, task_id, benefit_id, file_name, storage_path, content_type, sponsor_visible, created_at").in("task_id", taskIds)
+        : Promise.resolve({ data: [], error: null }),
+      approvalTaskIds.length
+        ? admin.from("sponsor_task_feedback").select("task_id, evidence_file_id, created_at").in("task_id", approvalTaskIds).eq("decision", "changes_requested")
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (evidenceResult.error) throw evidenceResult.error;
     if (feedbackResult.error) throw feedbackResult.error;
+    const evidenceRows = evidenceResult.data ?? [];
     const feedbackByApproval = new Map<string, Array<{ evidence_file_id: string | null; created_at: string }>>();
     for (const feedback of feedbackResult.data ?? []) feedbackByApproval.set(feedback.task_id, [...(feedbackByApproval.get(feedback.task_id) ?? []), feedback]);
     const returnedEvidenceIdsByApproval = new Map<string, Set<string>>();
@@ -156,10 +169,15 @@ export async function GET(request: Request) {
       }
     }
     const sponsorApprovalEvidenceIds = new Set([...activeEvidenceIdByApproval.values(), ...[...returnedEvidenceIdsByApproval.values()].flatMap((ids) => [...ids])]);
-    const signedEvidence = await Promise.all(evidenceRows.filter((evidence) => sponsorApprovalEvidenceIds.has(evidence.id) || sponsorUploadTaskIds.has(evidence.task_id ?? "")).map(async (evidence) => {
-      const { data } = await admin.storage.from("sponsorproof-files").createSignedUrl(evidence.storage_path, 3600, { download: false });
-      return data?.signedUrl ? { id: evidence.id, task_id: evidence.task_id, file_name: evidence.file_name, content_type: evidence.content_type, created_at: evidence.created_at, url: data.signedUrl } : null;
-    }));
+    const evidenceToSign = evidenceRows.filter((evidence) => sponsorApprovalEvidenceIds.has(evidence.id) || sponsorUploadTaskIds.has(evidence.task_id ?? ""));
+    const { data: signedEvidenceUrls } = evidenceToSign.length
+      ? await admin.storage.from("sponsorproof-files").createSignedUrls(evidenceToSign.map((evidence) => evidence.storage_path), 3600, { download: false })
+      : { data: [] };
+    const evidenceUrlByPath = new Map((signedEvidenceUrls ?? []).map((item) => [item.path, item.signedUrl]));
+    const signedEvidence = evidenceToSign.map((evidence) => {
+      const url = evidenceUrlByPath.get(evidence.storage_path);
+      return url ? { id: evidence.id, task_id: evidence.task_id, file_name: evidence.file_name, content_type: evidence.content_type, created_at: evidence.created_at, url } : null;
+    });
     const evidenceByTask = new Map<string, NonNullable<(typeof signedEvidence)[number]>[]>();
     for (const item of signedEvidence) if (item?.task_id) evidenceByTask.set(item.task_id, [...(evidenceByTask.get(item.task_id) ?? []), item]);
     const sponsorApprovals = allSponsorApprovalTasks.filter((task) => ["pending", "changes_requested", "approved"].includes(task.sponsor_approval_status)).map((task) => {
@@ -220,11 +238,6 @@ export async function GET(request: Request) {
       };
     });
     const events = eventsResult.data ?? [];
-    const signatureChecks = await Promise.all(events.map(async (event) => {
-      const { data, error } = await admin.rpc("event_signature_addon_enabled", { target_event_id: event.id });
-      if (error) throw error;
-      return data === true ? event.id : null;
-    }));
     const signatureEnabledEventIds = new Set(signatureChecks.filter((eventId): eventId is string => Boolean(eventId)));
     const sponsors = sponsorsResult.data ?? [];
     const contracts = (contractsResult.data ?? []).filter((contract) =>
@@ -240,15 +253,17 @@ export async function GET(request: Request) {
       if (documentsError) throw documentsError;
       for (const document of documents ?? []) documentsById.set(document.id, { contract_id: document.contract_id });
     }
-    const eventsWithLogos = await Promise.all(events.map(async (event) => {
+    const logoPaths = events.flatMap((event) => event.organizer_logo_path ? [event.organizer_logo_path] : []);
+    const { data: signedLogos } = logoPaths.length
+      ? await admin.storage.from("sponsorproof-files").createSignedUrls(logoPaths, 60 * 60 * 24)
+      : { data: [] };
+    const logoUrlByPath = new Map((signedLogos ?? []).map((item) => [item.path, item.signedUrl]));
+    const eventsWithLogos = events.map((event) => {
       const { organizer_logo_path, organization_id, ...eventData } = event;
-      const { data: logo } = organizer_logo_path
-        ? await admin.storage.from("sponsorproof-files").createSignedUrl(organizer_logo_path, 60 * 60 * 24)
-        : { data: null };
       return {
       ...eventData,
       organizer_name: organizationNames.get(organization_id) ?? "",
-      organizer_logo_url: logo?.signedUrl ?? null,
+      organizer_logo_url: organizer_logo_path ? logoUrlByPath.get(organizer_logo_path) ?? null : null,
       signature_addon_enabled: signatureEnabledEventIds.has(event.id),
       report_metrics: reportMetricsByEvent.get(event.id) ?? [],
       sponsor_assignments: assignments.filter((assignment) => assignment.event_id === event.id).map((assignment) => ({
@@ -292,7 +307,7 @@ export async function GET(request: Request) {
         })),
       })),
     };
-    }));
+    });
     return NextResponse.json({ profileRequired, profileName, events: eventsWithLogos }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Dein Sponsor-Bereich konnte nicht geladen werden." }, { status: 500 });
