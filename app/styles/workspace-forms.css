@@ -30,6 +30,8 @@
 }
 .modal-backdrop { position:fixed; inset:0; z-index:60; display:grid; place-items:center; padding:18px; background:#142a3a75; }
 .create-modal { width:min(100%, 520px); max-height:min(90vh, 720px); overflow:auto; padding:22px; border:1px solid #e8ecef; border-radius:14px; background:#fff; box-shadow:0 20px 60px #152f4330; }
+.signature-checkout-modal { width:min(100%, 540px); max-height:min(94vh, 820px); }
+.signature-checkout-embed { min-height:440px; }
 .block-create-modal { width:min(100%, 820px); max-height:min(92vh, 900px); padding:24px; }
 .block-create-modal .create-modal-head { margin-bottom:16px; }
 .block-editor-form { display:grid; gap:15px; }
