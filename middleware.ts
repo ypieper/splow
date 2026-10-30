@@ -16,6 +16,18 @@ export async function middleware(request: NextRequest) {
   const isPublicContactApi = pathname === "/api/contact";
   const isPublicReferralRoute = pathname.startsWith("/r/");
   const isPublicAsset = pathname === "/splow-icon.svg" || pathname === "/splow-logo.svg" || pathname.startsWith("/downloads/");
+  const recoveryPending = request.cookies.get("splow-password-reset-required")?.value === "1";
+  const recoverySafePath = isPasswordResetPage || isPasswordResetApi || isAuthCallback || isLoginPage || isPublicPage || isPublicContactApi || isPublicReferralRoute || isPublicAsset;
+
+  if (recoveryPending && !recoverySafePath) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Setze zuerst dein Passwort zurück, um Splow weiter zu nutzen." }, { status: 423, headers: { "Cache-Control": "no-store" } });
+    }
+    const resetUrl = request.nextUrl.clone();
+    resetUrl.pathname = "/passwort-zuruecksetzen";
+    resetUrl.search = "";
+    return NextResponse.redirect(resetUrl);
+  }
 
   if (isAuthCallback || isPasswordResetPage || isPasswordResetApi || isPublicPage || isPublicContactApi || isPublicReferralRoute || isPublicAsset) {
     return NextResponse.next({ request });

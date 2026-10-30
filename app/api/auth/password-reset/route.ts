@@ -12,6 +12,13 @@ function clearRecoveryCookie(response: NextResponse, request: NextRequest) {
     path: "/api/auth/password-reset",
     maxAge: 0,
   });
+  response.cookies.set("splow-password-reset-required", "", {
+    httpOnly: true,
+    secure: request.nextUrl.protocol === "https:",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
 }
 
 export async function POST(request: NextRequest) {

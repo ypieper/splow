@@ -16,6 +16,24 @@ export async function GET(request: NextRequest) {
     }
     const proof = code ? `c.${encodeURIComponent(code)}` : `t.${encodeURIComponent(tokenHash!)}`;
     const response = NextResponse.redirect(new URL("/passwort-zuruecksetzen", request.url));
+    for (const cookie of request.cookies.getAll()) {
+      if (cookie.name.startsWith("sb-") && /-auth-token(?:\\.\\d+)?$/.test(cookie.name)) {
+        response.cookies.set(cookie.name, "", {
+          httpOnly: true,
+          secure: request.nextUrl.protocol === "https:",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 0,
+        });
+      }
+    }
+    response.cookies.set("splow-password-reset-required", "1", {
+      httpOnly: true,
+      secure: request.nextUrl.protocol === "https:",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60,
+    });
     response.cookies.set("splow-password-recovery", proof, {
       httpOnly: true,
       secure: request.nextUrl.protocol === "https:",
