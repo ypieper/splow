@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 19927)
-Total output lines: 883
+Warning: truncated output (original token count: 20015)
+Total output lines: 886
 
 /* Auth pages: make account creation an obvious, low-friction next step. */
 .auth-page {
@@ -126,6 +126,8 @@ Total output lines: 883
 .sponsor-brand-kit-file { display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #e4eaee; border-radius:12px; background:#fff; }
 .sponsor-brand-kit-file > div { display:grid; flex:1; min-width:0; gap:5px; }
 .sponsor-brand-kit-file-main > small { overflow-wrap:anywhere; color:#81909c; font-size:10px; }
+.sponsor-brand-kit-file-label { overflow-wrap:anywhere; color:#263545; font-size:16px; font-weight:750; line-height:1.35; }
+.sponsor-brand-kit-file > .sponsor-brand-kit-actions { display:flex; flex:none; align-items:center; justify-content:flex-end; gap:8px; }
 .sponsor-brand-kit-edit-label { display:grid; flex:1; min-width:0; gap:2px; color:#81909c; font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
 .sponsor-brand-kit-edit-label input { width:100%; min-height:34px; padding:0 7px; border-color:transparent; background:transparent; color:#263545; font-size:16px; font-weight:750; }
 .sponsor-brand-kit-edit-label input:hover { border-color:#e5ebef; background:#fbfcfd; }
@@ -286,7 +288,108 @@ Total output lines: 883
 .sponsor-portal-content-event .sponsor-portal-event-heading-logo { width:84px; height:64px; }
 .sponsor-portal-content-event .sponsor-portal-event-heading h1 { margin:4px 0; font-size:clamp(26px,4vw,36px); }
 .sponsor-portal-heading-meta { display:flex; align-items:center; flex-wrap:wrap; gap:5px 13px; margin-top:6px; }
-.sponsor-portal-heading-meta .sponsor-portal-signed-volume { margin…4927 tokens truncated…tal-agreed-benefit .sponsor-benefit-type { margin:0; color:#657b8d; font-size:9px; }
+.sponsor-portal-heading-meta .sponsor-portal-signed-volume { margin:0; font-size:12px; }
+.sponsor-portal-heading-meta .sponsor-portal-signed-volume strong { font-size:12px; }
+.sponsor-portal-content-event .sponsor-portal-assignment-select { margin:10px 0 0; }
+.sponsor-portal-content-event .sponsor-portal-tabs { margin-top:12px; }
+@media (max-width:760px) {
+  .sponsor-portal-header { grid-template-columns:auto minmax(0,1fr); gap:0 10px; min-height:108px; padding:0 16px; }
+  .sponsor-portal-header > .brand { grid-column:1; grid-row:1; }
+  .sponsor-portal-header > div { grid-column:2; grid-row:1; gap:10px; }
+  .sponsor-portal-main-nav { grid-column:1 / -1; grid-row:2; min-width:0; margin:0 -4px; overflow-x:auto; scrollbar-width:none; }
+  .sponsor-portal-main-nav::-webkit-scrollbar { display:none; }
+  .sponsor-portal-main-nav a { flex:none; min-height:42px; padding:0 12px; white-space:nowrap; }
+  .sponsor-portal-header-caption { display:none; }
+  .sponsor-portal-welcome { align-items:flex-start; flex-direction:column; gap:14px; }
+  .sponsor-portal-welcome-action { min-height:36px; }
+  .sponsor-portal-shortcut-grid { grid-template-columns:1fr; gap:8px; }
+  .sponsor-portal-shortcut-card { min-height:66px; }
+  .sponsor-brand-kit-upload { align-items:stretch; flex-direction:column; }
+  .sponsor-brand-kit-file { flex-wrap:wrap; gap:9px; }
+  .sponsor-brand-kit-file-main { flex-basis:calc(100% - 56px); }
+  .sponsor-brand-kit-file > .sponsor-brand-kit-actions { flex:1 0 100%; flex-wrap:wrap; }
+  .sponsor-brand-kit-edit-label { flex:1; width:auto; }
+}
+@media (max-width: 1050px) {
+  .sponsor-portal-event-top-grid { grid-template-columns:minmax(0,1fr); gap:12px; }
+  .sponsor-portal-event-top-grid .sponsor-portal-overview-grid { grid-template-columns:minmax(0,1.55fr) minmax(220px,.9fr); }
+}
+@media (max-width: 680px) {
+  .sponsor-portal-event-card { padding:15px; }
+  .sponsor-portal-event-list-tabs { gap:2px; margin-top:19px; }
+  .sponsor-portal-event-list-tabs button { gap:6px; padding-right:9px; padding-left:9px; font-size:12px; }
+  .sponsor-portal-next-action { grid-template-columns:auto minmax(0,1fr); gap:10px; padding:11px; }
+  .sponsor-portal-next-action > .btn { grid-column:2; justify-self:start; }
+  .sponsor-portal-dashboard { padding:15px; }
+  .sponsor-portal-dashboard-heading { align-items:flex-start; flex-direction:column; }
+  .sponsor-portal-dashboard-metrics { grid-template-columns:1fr; gap:7px; }
+  .sponsor-portal-dashboard-metrics article { padding:10px 11px; }
+.sponsor-portal-overview-grid { grid-template-columns:minmax(0,1fr); grid-template-rows:repeat(2,minmax(104px,auto)); width:100%; gap:8px; }
+  .sponsor-portal-event-top-grid { gap:10px; margin-bottom:11px; }
+  .sponsor-portal-event-top-grid .sponsor-portal-overview-grid { grid-template-columns:minmax(0,1fr); }
+  .sponsor-portal-content-event { padding-top:20px; }
+  .sponsor-portal-content-event .sponsor-portal-event-heading { gap:11px; margin-bottom:12px; }
+  .sponsor-portal-content-event .sponsor-portal-event-heading-logo { width:68px; height:56px; }
+  .sponsor-portal-content-event .sponsor-portal-event-heading h1 { font-size:clamp(24px,7vw,32px); overflow-wrap:anywhere; }
+}
+.sponsor-portal-page .sponsor-invoice-area,
+.sponsor-portal-page .sponsor-document-area { padding:18px 21px; }
+.sponsor-portal-page .sponsor-invoice-area .table-head,
+.sponsor-portal-page .sponsor-document-area .table-head { align-items:flex-start; margin:0 0 14px; padding:0; }
+.sponsor-portal-tab-heading { display:grid; gap:5px; margin:0 0 14px; }
+.sponsor-portal-report-panel { display:grid; gap:0; width:100%; max-width:none; }
+.sponsor-portal-report-panel .sponsor-portal-tab-heading { grid-template-columns:auto minmax(0,1fr); align-items:start; gap:12px; margin-bottom:16px; }
+.sponsor-portal-report-icon { di…3015 tokens truncated…dding:0 10px; border:1px solid #e5eaee; border-radius:8px; background:#f8fafb; color:#778491; font-size:11px; }
+.add-benefit-subtask-row > span { padding-bottom: 9px; color: #465464; font-size: 11px; }
+@media (max-width: 700px) {
+  .benefit-template-subtasks-heading { align-items: flex-start; flex-direction: column; }
+  .benefit-template-subtask-row { grid-template-columns: 20px minmax(0,1fr) 30px; }
+  .add-benefit-assignment-fields { grid-template-columns: 1fr; margin-left: 0; }
+  .add-benefit-subtasks { margin-left: 0; }
+  .add-benefit-subtask-row { grid-template-columns: 1fr 1fr; }
+  .add-benefit-subtask-row > span:first-child { grid-column: 1/-1; padding-bottom: 0; }
+}
+@media (max-width: 760px) {
+  .add-benefit-picker-modal { width:min(100%,680px); height:92dvh; max-height:94dvh; }
+  .add-benefit-picker-layout { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(140px,.75fr) minmax(0,1.25fr); gap:10px; }
+  .add-benefit-picker-list,.add-benefit-picker-editor { padding:11px; }
+  .add-benefit-picker-section-head select { width:min(62%,260px); }
+}
+.benefit-template-subtask-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(270px,.58fr); align-items:start; gap:14px; min-width:0; }
+.benefit-template-subtask-title { display:grid; gap:5px; min-width:0; }
+.benefit-template-subtask-title > .settings-field { margin:0; }
+.benefit-template-subtask-fields > label { display:grid; align-content:start; gap:5px; color:#647282; font-size:10px; }
+.benefit-template-subtask-fields > label select { width:100%; min-width:0; }
+.benefit-template-main-completion { max-width:390px; margin-top:16px; }
+.benefit-template-main-completion .settings-field { margin:0; }
+.sponsor-invoice-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+.sponsor-invoice-file-row { display:flex; align-items:center; flex-wrap:wrap; gap:11px; margin-top:18px; padding:14px; border:1px solid #e8edf0; border-radius:9px; background:#fbfcfd; }
+.sponsor-invoice-file-row > span { flex:1 1 200px; color:#718092; font-size:11px; overflow-wrap:anywhere; }
+.sponsor-invoice-file-row input[type="file"] { display:none; }
+@media (max-width: 700px) {
+  .benefit-template-subtask-fields { grid-template-columns:minmax(0,1fr); }
+  .benefit-template-main-completion { max-width:none; }
+  .sponsor-invoice-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 480px) { .sponsor-invoice-grid { grid-template-columns:minmax(0,1fr); } }
+.subtask-dependency-hint { display:block; color:#718092; font-size:10px; line-height:1.4; }
+.add-benefit-subtask-row > span > small { display:block; margin-top:3px; }
+.task-dependency-blocked { color:#8a5a28; }
+.task-publish-ready { display:inline-flex; margin-top:5px; color:#187653; font-size:10px; font-weight:700; }
+.sponsor-portal-approvals { margin:0 0 15px; padding:14px; border:1px solid #e8edf0; border-radius:10px; background:#fbfcfd; }
+.sponsor-portal-approvals h3 { margin:0 0 10px; color:#354657; font-size:12px; }
+.sponsor-portal-approval { display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:11px 0; border-top:1px solid #e9edf0; }
+.sponsor-portal-approval > div { display:grid; flex:1 1 220px; gap:4px; }
+.sponsor-portal-approval b { color:#354657; font-size:11px; }
+.sponsor-portal-approval span,.sponsor-portal-approval small { color:#718092; font-size:10px; }
+.sponsor-portal-approval .btn { min-height:34px; font-size:10px; }
+.sponsor-portal-benefits-list { margin: 0; }
+.sponsor-portal-agreed-benefits { display:grid; gap:12px; margin-top:16px; }
+.sponsor-portal-agreed-benefit { display:grid; gap:12px; padding:16px; border:1px solid #e4eaf0; border-radius:12px; background:#fbfcfd; }
+.sponsor-portal-agreed-benefit > header { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+.sponsor-portal-agreed-benefit > header > div { display:grid; gap:5px; min-width:0; }
+.sponsor-portal-agreed-benefit > header b { color:#354657; font-size:14px; }
+.sponsor-portal-agreed-benefit .sponsor-benefit-type { margin:0; color:#657b8d; font-size:9px; }
 .sponsor-portal-agreed-benefit > header span { color:#718092; font-size:12px; line-height:1.5; }
 .sponsor-portal-agreed-benefit > header strong { flex:none; color:#53677a; font-size:12px; }
 .sponsor-portal-benefit-progress { height:8px; overflow:hidden; border-radius:999px; background:#e9eef2; }
