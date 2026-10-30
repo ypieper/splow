@@ -107,7 +107,7 @@ export default function LandingPage() {
           <div className="landing-story-visual landing-reveal landing-reveal-right" data-active-step="0" aria-label="Animierte Vorschau des Event-Arbeitsstands">
             <div className="landing-story-glow" />
             <div className="landing-story-window">
-              <div className="landing-story-window-top"><span className="landing-window-dots"><i/><i/><i/></span><span className="landing-browser-address"><i/>Splow <b>/</b> Veranstalterbereich <b>/</b> Filme mit Freunden 2027</span><b className="landing-live-status"><i/>Live-Übersicht</b></div>
+              <div className="landing-story-window-top"><span className="landing-window-dots"><i/><i/><i/></span><span className="landing-browser-address"><i/>Splow <b>/</b> Veranstalterbereich <b>/</b> Filme mit Freunden 2027</span><b className="landing-live-status"><i/>Live-Dashboard</b></div>
               <div className="landing-story-window-body">
                 <div className="landing-story-sidebar"><span className="landing-mini-logo">s</span><i/><i/><i/><i/></div>
                 <div className="landing-story-board">
