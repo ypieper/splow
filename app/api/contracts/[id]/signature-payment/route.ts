@@ -162,7 +162,6 @@ export async function POST(request: Request, context: Context) {
       cancel.searchParams.set("contract_id", id);
       const form = new URLSearchParams();
       form.set("mode", "payment");
-      form.set("payment_method_types[0]", "card");
       form.set("line_items[0][price_data][currency]", "eur");
       form.set("line_items[0][price_data][unit_amount]", String(reservation.amount_cents));
       form.set("line_items[0][price_data][product_data][name]", "Digitale Vertragszeichnung");
