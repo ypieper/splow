@@ -7,8 +7,11 @@
     </linearGradient>
   </defs>
   <rect x="1" y="5" width="42" height="42" rx="13" fill="url(#brand)" />
-  <svg x="6" y="10" width="32" height="32" viewBox="0 0 32 32" fill="none">
-    <path d="M10 26V7h7a6 6 0 0 1 0 12h-7" stroke="#fff" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round" />
-  </svg>
+  <g transform="translate(4.36 9.36) scale(.52)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M27 28c-3-8-11-10-14-6-3 4 1 10 10 12M37 28c3-8 11-10 14-6 3 4-1 10-10 12" stroke="#F9C7B9" stroke-width="4.5" />
+    <path d="M28 25c-2-5-5-8-9-9M36 25c2-5 5-8 9-9" stroke="#fff" stroke-width="3.5" />
+    <path d="M32 25c-7 0-11 5-11 13 0 9 5 16 11 19 6-3 11-10 11-19 0-8-4-13-11-13Z" fill="#fff" />
+    <path d="M22 35c5 3 17 3 20 0M23.5 42c4 3 13 3 17 0" stroke="#192D40" stroke-width="4" />
+  </g>
   <text x="56" y="37" fill="#192d40" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="700" letter-spacing="-1.2">Splow</text>
 </svg>
