@@ -733,7 +733,7 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
         const response = await fetch(`/api/contracts/${contract.id}/signature-release`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ signingDocumentId: document.id }),
+          body: JSON.stringify({ contractId: contract.id, signingDocumentId: document.id }),
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error ?? "Der Vertrag konnte nicht freigegeben werden.");
