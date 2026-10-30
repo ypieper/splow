@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SponsoLogo } from "@/components/ui";
+import { SplowLogo } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -23,9 +23,9 @@ export async function PublicPageFrame({ children, showLoginLink = true, partnerL
   }
 
   return <div className="public-site-shell">
-    <header className={`public-site-header${partnerLogoUrl ? " public-site-header-partner" : ""}`}><div className="public-brand-lockup"><Link href={brandHref} aria-label="pacct öffnen"><SponsoLogo /></Link>{partnerLogoUrl && <><span className="public-brand-partnership" aria-label="in Partnerschaft mit">×</span><img className="public-partner-logo" src={partnerLogoUrl} alt="Logo des Veranstalters"/></>}</div>{showLoginLink && <Link className="btn" href={isAuthenticated ? "/dashboard" : "/login"}>{isAuthenticated ? "Zurück zum Veranstalterbereich" : "Zur Anmeldung"}</Link>}</header>
+    <header className={`public-site-header${partnerLogoUrl ? " public-site-header-partner" : ""}`}><div className="public-brand-lockup"><Link href={brandHref} aria-label="Splow öffnen"><SplowLogo /></Link>{partnerLogoUrl && <><span className="public-brand-partnership" aria-label="in Partnerschaft mit">×</span><img className="public-partner-logo" src={partnerLogoUrl} alt="Logo des Veranstalters"/></>}</div>{showLoginLink && <Link className="btn" href={isAuthenticated ? "/dashboard" : "/login"}>{isAuthenticated ? "Zurück zum Veranstalterbereich" : "Zur Anmeldung"}</Link>}</header>
     {children}
-    <footer className="public-site-footer"><span>© {new Date().getFullYear()} pacct</span><nav aria-label="Rechtliche Hinweise">{links.map(([label, href]) => <a key={href} href={href}>{label}</a>)}</nav></footer>
+    <footer className="public-site-footer"><span>© {new Date().getFullYear()} Splow</span><nav aria-label="Rechtliche Hinweise">{links.map(([label, href]) => <a key={href} href={href}>{label}</a>)}</nav></footer>
   </div>;
 }
 
@@ -34,7 +34,7 @@ export type LegalSection = { title: string; paragraphs: string[]; bullets?: stri
 export function LegalPage({ title, intro, sections }: { title: string; intro: string; sections: LegalSection[] }) {
   return <PublicPageFrame>
     <main className="public-page-content">
-      <div className="eyebrow">PACCT · ENTWURF</div>
+      <div className="eyebrow">SPLOW · ENTWURF</div>
       <h1>{title}</h1>
       <p className="public-page-intro">{intro}</p>
       <aside className="legal-draft-notice"><strong>Vorschlag – noch nicht veröffentlichen</strong><span>Die Angaben in eckigen Klammern müssen ergänzt werden. Bitte den Entwurf vor dem produktiven Einsatz rechtlich prüfen lassen.</span></aside>

@@ -1,6 +1,6 @@
 import type { PortalEvent,PortalFile } from "./types";
 
-export const demoFile: PortalFile = { id: "demo-document", file_name: "Beispiel-Nachweis.pdf", content_type: "application/pdf", created_at: "2026-10-17T12:22:00.000Z", url: "/downloads/pacct-muster-vertriebspartnervereinbarung.pdf" };
+export const demoFile: PortalFile = { id: "demo-document", file_name: "Beispiel-Nachweis.pdf", content_type: "application/pdf", created_at: "2026-10-17T12:22:00.000Z", url: "/downloads/splow-muster-vertriebspartnervereinbarung.pdf" };
 
 export const demoPortalEvent: PortalEvent = {
   id: "demo",
@@ -12,14 +12,14 @@ export const demoPortalEvent: PortalEvent = {
   organizer_name: "Aloha Events",
   contact_first_name: "Jonas",
   contact_last_name: "Kastenholz",
-  contact_email: "jonas@pacct.de",
+  contact_email: "jonas@Splow.de",
   contact_phone: "0175 34396572",
   signature_addon_enabled: true,
   report_metrics: [{ id: "demo-attendance", name: "Besucherzahl", value: "12.500" }, { id: "demo-social-reach", name: "Social-Media-Reichweite", value: "85.000" }],
   sponsor_assignments: [{
     sponsor_id: "demo-sponsor",
     sponsor_name: "Elspass Autoland GmbH",
-    contracts: [{ id: "demo-contract", title: "Sponsoringvertrag", sponsor_name: "Elspass Autoland GmbH", value_cents: 500000, signature_status: "signed", sponsor_signed_at: "2026-10-14T14:10:00.000Z", organizer_signed_at: "2026-10-14T14:12:00.000Z", signed_at: "2026-10-14T14:12:00.000Z", signing_url: "/downloads/pacct-muster-vertriebspartnervereinbarung.pdf" }],
+    contracts: [{ id: "demo-contract", title: "Sponsoringvertrag", sponsor_name: "Elspass Autoland GmbH", value_cents: 500000, signature_status: "signed", sponsor_signed_at: "2026-10-14T14:10:00.000Z", organizer_signed_at: "2026-10-14T14:12:00.000Z", signed_at: "2026-10-14T14:12:00.000Z", signing_url: "/downloads/splow-muster-vertriebspartnervereinbarung.pdf" }],
     tasks: [
       { id: "demo-manual-upload", title: "Logo für die Event-Website bereitstellen", due_at: "2027-05-20", status: "Offen", completion_type: "sponsor_upload", requires_sponsor_approval: false, sponsor_approval_status: "pending", sponsor_approved_at: null, ready: true, files: [] },
       { id: "demo-manual-approval", title: "Social-Media-Beitrag freigeben", due_at: "2027-05-28", status: "In Bearbeitung", completion_type: "sponsor_approval", requires_sponsor_approval: true, sponsor_approval_status: "pending", sponsor_approved_at: null, ready: true, files: [demoFile] },

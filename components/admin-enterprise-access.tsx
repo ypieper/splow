@@ -117,13 +117,13 @@ export function AdminEnterpriseAccess() {
               onFocus={() => setOrganizationOptionsOpen(true)}
               onBlur={() => window.setTimeout(() => setOrganizationOptionsOpen(false), 120)}
               onChange={(event) => { setOrganizationQuery(event.target.value); setOrganizationId(""); setOrganizationOptionsOpen(true); setError(""); }}
-              placeholder="Name oder Pacct-ID suchen"
+              placeholder="Name oder Splow-ID suchen"
             />
             {organizationOptionsOpen && <div className="admin-organization-options" id="enterprise-organizations" role="listbox">
               {matchingOrganizations.map((item) => <button key={item.id} type="button" role="option" aria-selected={organizationId === item.id} onMouseDown={(event) => event.preventDefault()} onClick={() => { setOrganizationId(item.id); setOrganizationQuery(""); setOrganizationOptionsOpen(false); setError(""); }}>{organizationOptionLabel(item)}</button>)}
               {matchingOrganizations.length === 0 && <span className="task-caption">Kein Veranstalterbereich gefunden.</span>}
             </div>}
-            <small className="task-caption">Name und Pacct-ID sind sichtbar und durchsuchbar.</small>
+            <small className="task-caption">Name und Splow-ID sind sichtbar und durchsuchbar.</small>
           </div>
           <label className="settings-field"><span>Jahresgebühr (€)</span><input required type="number" min="0.01" step="0.01" inputMode="decimal" value={annualFee} onChange={(event) => setAnnualFee(event.target.value)} placeholder="Betrag laut Rechnung" /></label>
           <label className="settings-field"><span>Gültig bis</span><input required type="date" min={new Date().toISOString().slice(0, 10)} value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label>
@@ -136,10 +136,10 @@ export function AdminEnterpriseAccess() {
       </form>}
     </section>
     {entitlements.length > 0 && <section className="panel table-panel admin-code-list"><div className="panel-heading"><div><h2>Freischaltungen</h2><p>Aktive und abgelaufene Enterprise-Zugänge für alle Veranstalterbereiche.</p></div></div>
-      <div className="admin-code-table-wrap"><table className="table table-card-list"><thead><tr><th>VERANSTALTERBEREICH</th><th>PACCT-ID</th><th>JAHRESGEBÜHR</th><th>STATUS</th><th>GÜLTIG BIS</th><th>RECHNUNG</th><th>NOTIZ</th><th>AKTION</th></tr></thead><tbody>{entitlements.map((item) => {
+      <div className="admin-code-table-wrap"><table className="table table-card-list"><thead><tr><th>VERANSTALTERBEREICH</th><th>SPLOW-ID</th><th>JAHRESGEBÜHR</th><th>STATUS</th><th>GÜLTIG BIS</th><th>RECHNUNG</th><th>NOTIZ</th><th>AKTION</th></tr></thead><tbody>{entitlements.map((item) => {
         const expired = new Date(item.expires_at).getTime() <= Date.now();
         const active = item.is_active && !expired;
-        return <tr key={item.organization_id}><td data-label="Veranstalterbereich"><b>{item.organization_name}</b></td><td data-label="Pacct-ID"><code>{item.sponso_id ?? "—"}</code></td><td data-label="Jahresgebühr">{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(item.annual_fee_cents / 100)}</td><td data-label="Status"><span className={`status ${active ? "status-done" : "status-open"}`}>{active ? "Aktiv" : item.is_active ? "Abgelaufen" : "Deaktiviert"}</span></td><td data-label="Gültig bis">{new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(item.expires_at))}</td><td data-label="Rechnung">{item.invoice_reference || "—"}</td><td data-label="Notiz">{item.internal_note || "—"}</td><td data-label="Aktion">{active && <button className="btn btn-danger-soft" type="button" disabled={deactivating === item.organization_id} onClick={() => void deactivate(item.organization_id)}>{deactivating === item.organization_id ? "Wird deaktiviert …" : "Deaktivieren"}</button>}</td></tr>;
+        return <tr key={item.organization_id}><td data-label="Veranstalterbereich"><b>{item.organization_name}</b></td><td data-label="Splow-ID"><code>{item.sponso_id ?? "—"}</code></td><td data-label="Jahresgebühr">{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(item.annual_fee_cents / 100)}</td><td data-label="Status"><span className={`status ${active ? "status-done" : "status-open"}`}>{active ? "Aktiv" : item.is_active ? "Abgelaufen" : "Deaktiviert"}</span></td><td data-label="Gültig bis">{new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(item.expires_at))}</td><td data-label="Rechnung">{item.invoice_reference || "—"}</td><td data-label="Notiz">{item.internal_note || "—"}</td><td data-label="Aktion">{active && <button className="btn btn-danger-soft" type="button" disabled={deactivating === item.organization_id} onClick={() => void deactivate(item.organization_id)}>{deactivating === item.organization_id ? "Wird deaktiviert …" : "Deaktivieren"}</button>}</td></tr>;
       })}</tbody></table></div>
     </section>}
     {error && !loading && organizations.length > 0 && <p className="admin-feedback" role="alert">{error}</p>}

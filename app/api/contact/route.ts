@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       organizationId = membership?.organization_id ?? null;
     }
   } catch {
-    // Public visitors can submit without a pacct account.
+    // Public visitors can submit without a Splow account.
   }
 
   const { error } = await admin.from("contact_requests").insert({

@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { SponsoLogo } from "@/components/ui";
+import { SplowLogo } from "@/components/ui";
 import { AuthForm } from "@/components/auth-form";
 import { privatePageMetadata } from "@/lib/seo";
 
-export const metadata = privatePageMetadata("Anmelden", "Melde dich bei pacct an, um Sponsoren, Events und Nachweise zu verwalten.");
+export const metadata = privatePageMetadata("Anmelden", "Melde dich bei Splow an, um Sponsoren, Events und Nachweise zu verwalten.");
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ mode?: string; next?: string; type?: string }> }) {
   const params = await searchParams;
@@ -15,8 +15,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
   return <main className="auth-page">
     <section className="auth-choice-layout">
-      <div className="auth-choice-brand"><SponsoLogo /></div>
-      <div className="auth-choice-heading"><span className="auth-form-eyebrow">WILLKOMMEN BEI PACCT</span><h1>Wie möchtest du dich anmelden?</h1><p>Wähle den passenden Zugang für dein Konto.</p></div>
+      <div className="auth-choice-brand"><SplowLogo /></div>
+      <div className="auth-choice-heading"><span className="auth-form-eyebrow">WILLKOMMEN BEI SPLOW</span><h1>Wie möchtest du dich anmelden?</h1><p>Wähle den passenden Zugang für dein Konto.</p></div>
       <div className="auth-choice-grid">
         <a className="auth-choice-card" href="/login/veranstalter">
           <span className="auth-choice-icon" aria-hidden="true">↗</span>

@@ -4,7 +4,7 @@
 
 | Umgebung | Datenbank | Zweck |
 | --- | --- | --- |
-| localhost:3000 | `pacct - test` (`nwlapyarlpaztpdouyxm`) | Entwicklung und Refactoring |
+| localhost:3000 | `Splow - test` (`nwlapyarlpaztpdouyxm`) | Entwicklung und Refactoring |
 | Vercel Preview | Dasselbe Testprojekt, sobald Preview konfiguriert ist | Änderungen vor Veröffentlichung ansehen |
 | Vercel Production | Bestehendes Produktivprojekt (`qnbqbnbdhjvocxycnnwm`) | Livebetrieb |
 

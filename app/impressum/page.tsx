@@ -1,7 +1,7 @@
 import { LegalPage } from "@/components/public-page-frame";
 import { privatePageMetadata } from "@/lib/seo";
 
-export const metadata = privatePageMetadata("Impressum", "Anbieter- und Kontaktangaben zu pacct.");
+export const metadata = privatePageMetadata("Impressum", "Anbieter- und Kontaktangaben zu Splow.");
 
 export default function ImprintPage() {
   return <LegalPage title="Impressum" intro="Angaben zum Anbieter dieses digitalen Dienstes." sections={[

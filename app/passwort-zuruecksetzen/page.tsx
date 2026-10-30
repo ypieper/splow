@@ -43,8 +43,8 @@ export default function ResetPasswordPage() {
       <span className="settings-section-icon"><Icon name="settings" size={17}/></span>
       {updated ? <>
         <h1>Passwort geändert</h1>
-        <p>Dein neues Passwort ist gespeichert. Du kannst pacct jetzt öffnen.</p>
-        <button className="btn btn-primary" type="button" onClick={() => router.replace("/dashboard")}>Weiter zu pacct</button>
+        <p>Dein neues Passwort ist gespeichert. Du kannst Splow jetzt öffnen.</p>
+        <button className="btn btn-primary" type="button" onClick={() => router.replace("/dashboard")}>Weiter zu Splow</button>
       </> : <>
         <h1>Neues Passwort festlegen</h1>
         <p>Wähle ein neues Passwort für dein Konto.</p>

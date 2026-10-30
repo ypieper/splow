@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Icon, SponsoLogo } from "@/components/ui";
+import { Icon, SplowLogo } from "@/components/ui";
 import { MobileMenu, adminNavigation, navigation } from "@/components/mobile-menu";
 import { LogoutButton } from "@/components/logout-button";
 import { OrganizerAccountMenu } from "@/components/organizer-account-menu";
@@ -94,7 +94,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       : path === "/admin/commission-rules" ? "Provisionsregeln"
       : path.startsWith("/admin") ? "Administration"
       : "Sponsoring verwalten";
-    document.title = `${title} | pacct`;
+    document.title = `${title} | Splow`;
   }, [path]);
 
   if (path.startsWith("/login") || path === "/admin/login" || path === "/onboarding" || path === "/partner" || path === "/sponsor" || path.startsWith("/sponsor/")) return <>{children}</>;
@@ -104,7 +104,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const currentOrganizerPage = navigation.find((item) => path === item.href || path.startsWith(`${item.href}/`))?.label ?? "Übersicht";
   return <div className={`app-frame${adminNavigationOnly ? "" : " organizer-app-frame"}`}>
     {adminNavigationOnly && <aside className="sidebar">
-      <Link href="/admin/users" className="brand" aria-label="pacct Administration"><SponsoLogo /></Link>
+      <Link href="/admin/users" className="brand" aria-label="Splow Administration"><SplowLogo /></Link>
       <div className="nav-label">Plattform</div>
       <nav className="nav-list">{adminNavigation.map((item) => {
         const active = path === item.href || (item.href !== "/admin/users" && path.startsWith(`${item.href}/`));
@@ -114,7 +114,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className={`main-area ${path === "/dashboard" ? "dashboard-main-area" : ""}`}>
       {adminNavigationOnly ? <header className="topbar"><MobileMenu isPlatformAdmin/><div className="crumb">Plattform <span style={{padding:"0 7px",color:"#c1c7ce"}}>/</span> <b>{adminNavigation.find((item) => item.href === path)?.label ?? "Benutzer"}</b></div><div className="top-actions"><LogoutButton/></div></header> : <header className="topbar organizer-topbar">
         <div className="organizer-compact-navigation"><MobileMenu isSalesPartner={isSalesPartner}/><span className="organizer-current-page">{currentOrganizerPage}</span></div>
-        <Link href="/dashboard" className="brand organizer-topbar-brand" aria-label="pacct Übersicht öffnen"><SponsoLogo /></Link>
+        <Link href="/dashboard" className="brand organizer-topbar-brand" aria-label="Splow Übersicht öffnen"><SplowLogo /></Link>
         <nav className="organizer-top-navigation" aria-label="Hauptnavigation">{[...navigation, ...(isSalesPartner ? [{ label: "Vertriebspartner", href: "/partner", icon: "spark" }] : [])].map((item) => {
           const route = item.href.split("?")[0];
           const active = path === route || (route !== "/" && path.startsWith(`${route}/`));
@@ -123,7 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="top-actions"><Link className="btn top-event-mode-link" href="/event-modus" aria-label="Event-Modus öffnen" title="Event-Modus öffnen"><Icon name="camera" size={15}/><span>Event-Modus öffnen</span></Link><OrganizerAccountMenu initials={userDisplay.initials} name={userDisplay.name}/></div>
       </header>}
       {children}
-      <footer className="app-footer"><span>© {new Date().getFullYear()} pacct</span><nav aria-label="Rechtliche Hinweise"><Link href="/agb">AGB</Link><Link href="/impressum">Impressum</Link><Link href="/datenschutz">Datenschutz</Link><Link href="/kontakt">Kontakt</Link></nav></footer>
+      <footer className="app-footer"><span>© {new Date().getFullYear()} Splow</span><nav aria-label="Rechtliche Hinweise"><Link href="/agb">AGB</Link><Link href="/impressum">Impressum</Link><Link href="/datenschutz">Datenschutz</Link><Link href="/kontakt">Kontakt</Link></nav></footer>
     </div>
   </div>;
 }

@@ -1,4 +1,4 @@
-# Anwendungskarte: sponso
+# Anwendungskarte: Splow
 
 Stand: 21. Oktober 2026. Diese Karte beschreibt die im Repository erkennbare Architektur und die in [`test-environments.md`](./test-environments.md) dokumentierte Zuordnung. Einstellungen in Vercel, Supabase, Resend und beim DNS-Anbieter wurden für diese Karte nicht in den jeweiligen Konten überprüft.
 
@@ -34,7 +34,7 @@ Der Weg von GitHub zur Vercel Preview und die Zuordnung der Umgebungsvariablen s
 
 ```mermaid
 flowchart LR
-    App["sponso-Anwendung"]
+    App["Splow-Anwendung"]
     AuthTest["Supabase Auth<br/>Testprojekt"]
     AuthLive["Supabase Auth<br/>Produktivprojekt"]
     Resend["Resend<br/>SMTP-Versand"]

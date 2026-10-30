@@ -4,7 +4,7 @@ import { privatePageMetadata } from "@/lib/seo";
 import { getAuthorizedSalesPartner } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
-export const metadata = privatePageMetadata("Vertriebspartner", "Vermittlungen und Provisionen bei pacct im Überblick.");
+export const metadata = privatePageMetadata("Vertriebspartner", "Vermittlungen und Provisionen bei Splow im Überblick.");
 
 export default async function PartnerPage() {
   const auth = await getAuthorizedSalesPartner();

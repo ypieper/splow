@@ -5,20 +5,20 @@ import { LandingMotion } from "./landing/landing-motion";
 
 export const metadata: Metadata = {
   title: "Sponsoringmanagement für Veranstalter",
-  description: "Mit pacct verwaltest du Sponsoren, Vereinbarungen, Aufgaben und Nachweise für deine Veranstaltung an einem Ort.",
+  description: "Mit Splow verwaltest du Sponsoren, Vereinbarungen, Aufgaben und Nachweise für deine Veranstaltung an einem Ort.",
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
   openGraph: {
     type: "website",
     locale: "de_DE",
-    siteName: "pacct",
-    title: "pacct – Sponsoring einfach organisiert",
+    siteName: "Splow",
+    title: "Splow – Sponsoring einfach organisiert",
     description: "Von der Vereinbarung bis zum Leistungsnachweis: Sponsoring für Veranstaltungen an einem Ort organisieren.",
     url: "/",
   },
   twitter: {
     card: "summary",
-    title: "pacct – Sponsoring einfach organisiert",
+    title: "Splow – Sponsoring einfach organisiert",
     description: "Sponsoren, Leistungen, Aufgaben und Nachweise für dein Event zentral verwalten.",
   },
 };
@@ -60,7 +60,7 @@ export default function LandingPage() {
           <div className="landing-hero-actions">
             <Link className="btn btn-primary" href="/login?type=organizer&mode=signup">Als Veranstalter starten <span aria-hidden="true">→</span></Link>
             <Link className="landing-demo-link" href="/demo">Produktdemo ansehen <span aria-hidden="true">↗</span></Link>
-            <Link className="landing-text-link" href="#ablauf">So funktioniert pacct <span aria-hidden="true">↓</span></Link>
+            <Link className="landing-text-link" href="#ablauf">So funktioniert Splow <span aria-hidden="true">↓</span></Link>
             <Link className="landing-price-link" href="#preise">Preise ansehen <span aria-hidden="true">↓</span></Link>
           </div>
           <div className="landing-audience">Für Festivals, Stadtfeste, Vereine und Open-Air-Events</div>
@@ -89,11 +89,11 @@ export default function LandingPage() {
         <span>Ein klarer Ablauf hilft deinem Team, den Überblick zu behalten.</span>
       </section>
 
-      <section className="landing-story" aria-label="So begleitet pacct dein Event">
+      <section className="landing-story" aria-label="So begleitet Splow dein Event">
         <div className="landing-section-heading landing-reveal">
           <span className="landing-eyebrow">EIN EVENT. EIN KLARER FADEN.</span>
           <h2>Vom ersten Ja bis zum letzten Nachweis.</h2>
-          <p>Ein Blick in pacct: Sponsoren, Leistungen und Nachweise bleiben im Event an einem Ort verbunden.</p>
+          <p>Ein Blick in Splow: Sponsoren, Leistungen und Nachweise bleiben im Event an einem Ort verbunden.</p>
         </div>
         <div className="landing-story-layout">
           <div className="landing-story-steps">
@@ -107,7 +107,7 @@ export default function LandingPage() {
           <div className="landing-story-visual landing-reveal landing-reveal-right" data-active-step="0" aria-label="Animierte Vorschau des Event-Arbeitsstands">
             <div className="landing-story-glow" />
             <div className="landing-story-window">
-              <div className="landing-story-window-top"><span className="landing-window-dots"><i/><i/><i/></span><span className="landing-browser-address"><i/>pacct <b>/</b> Veranstalterbereich <b>/</b> Filme mit Freunden 2027</span><b className="landing-live-status"><i/>Live-Übersicht</b></div>
+              <div className="landing-story-window-top"><span className="landing-window-dots"><i/><i/><i/></span><span className="landing-browser-address"><i/>Splow <b>/</b> Veranstalterbereich <b>/</b> Filme mit Freunden 2027</span><b className="landing-live-status"><i/>Live-Übersicht</b></div>
               <div className="landing-story-window-body">
                 <div className="landing-story-sidebar"><span className="landing-mini-logo">s</span><i/><i/><i/><i/></div>
                 <div className="landing-story-board">
@@ -116,7 +116,7 @@ export default function LandingPage() {
                   <div className="landing-story-screens">
                     <div className="landing-story-screen landing-story-screen-contract" data-story-screen="0"><div className="landing-screen-title"><span>VEREINBARUNGEN</span><b>Partner im Überblick</b></div><div className="landing-screen-row"><i className="landing-avatar avatar-orange">E</i><span><b>Elspass Autoland</b><small>Vertrag · Hauptsponsor</small></span><em>Vereinbart</em></div><div className="landing-screen-row"><i className="landing-avatar avatar-blue">H</i><span><b>Hellmich Baugesellschaft</b><small>Vertrag · Partner</small></span><em>Vereinbart</em></div><div className="landing-screen-row"><i className="landing-avatar avatar-green">W</i><span><b>Volksbank Rhein-Lippe</b><small>Leistungen · 3 Bausteine</small></span><em>In Arbeit</em></div></div>
                     <div className="landing-story-screen landing-story-screen-tasks" data-story-screen="1"><div className="landing-screen-title"><span>UMSETZUNG & FREIGABE</span><b>Gemeinsam mit dem Sponsor abstimmen</b></div><div className="landing-task-card"><span className="landing-task-check">✓</span><span><b>Logo am Eingangsbereich platzieren</b><small>Elspass Autoland · Heute</small></span><em>Erledigt</em></div><div className="landing-task-card landing-task-card-active"><span className="landing-task-check">↗</span><span><b>Social-Media-Beitrag freigeben</b><small>Volksbank Rhein-Lippe · Sponsor prüft</small></span><em>Freigabe offen</em></div><div className="landing-task-card"><span className="landing-task-check">✓</span><span><b>Bannerfläche vorbereiten</b><small>Hellmich Baugesellschaft · 14. Juni</small></span><em>Erledigt</em></div></div>
-                    <div className="landing-story-screen landing-story-screen-proof" data-story-screen="2"><div className="landing-screen-title"><span>LEISTUNGSNACHWEIS</span><b>Gemeinsam dokumentiert</b></div><div className="landing-proof-report"><div className="landing-proof-cover"><span>pacct</span><b>LEISTUNGS-<br/>NACHWEIS</b><small>FILME MIT FREUNDEN<br/>2027</small><i>✓</i></div><div className="landing-proof-details"><small>FÜR ELSPASS AUTOLAND</small><b>Ein Event. Sichtbare Wirkung.</b><span><i/> Hauptbanner am Eingang</span><span><i/> Logo auf der Event-Website</span><span><i/> Social-Media-Beitrag</span><em>3 von 3 Leistungen belegt</em></div></div></div>
+                    <div className="landing-story-screen landing-story-screen-proof" data-story-screen="2"><div className="landing-screen-title"><span>LEISTUNGSNACHWEIS</span><b>Gemeinsam dokumentiert</b></div><div className="landing-proof-report"><div className="landing-proof-cover"><span>Splow</span><b>LEISTUNGS-<br/>NACHWEIS</b><small>FILME MIT FREUNDEN<br/>2027</small><i>✓</i></div><div className="landing-proof-details"><small>FÜR ELSPASS AUTOLAND</small><b>Ein Event. Sichtbare Wirkung.</b><span><i/> Hauptbanner am Eingang</span><span><i/> Logo auf der Event-Website</span><span><i/> Social-Media-Beitrag</span><em>3 von 3 Leistungen belegt</em></div></div></div>
                   </div>
                   <div className="landing-story-window-footer"><span><i/> Alle arbeiten mit demselben aktuellen Stand</span><b>GESPEICHERT</b></div>
                 </div>
@@ -132,7 +132,7 @@ export default function LandingPage() {
         <div className="landing-section-heading landing-reveal">
           <span className="landing-eyebrow">EIN DURCHGÄNGIGER PROZESS</span>
           <h2>Vom Sponsoring-Deal zum sichtbaren Ergebnis.</h2>
-          <p>pacct verbindet Vereinbarungen, Aufgaben und Nachweise in einem Event.</p>
+          <p>Splow verbindet Vereinbarungen, Aufgaben und Nachweise in einem Event.</p>
         </div>
         <div className="landing-steps">
           {workflow.map((step, index) => <article className={`landing-step landing-reveal landing-reveal-delay-${index + 1}`} key={step.number}>
@@ -190,7 +190,7 @@ export default function LandingPage() {
       </section>
 
       <section className="landing-final-cta landing-reveal">
-        <div><span className="landing-eyebrow">PACCT · SPONSORING EINFACH ORGANISIERT</span><h2>Mach dein nächstes Event übersichtlicher.</h2><p>Bring Vereinbarungen, Umsetzung und Nachweise an einem Ort zusammen.</p></div>
+        <div><span className="landing-eyebrow">SPLOW · SPONSORING EINFACH ORGANISIERT</span><h2>Mach dein nächstes Event übersichtlicher.</h2><p>Bring Vereinbarungen, Umsetzung und Nachweise an einem Ort zusammen.</p></div>
         <div className="landing-final-actions"><Link className="btn btn-primary" href="/login?type=organizer&mode=signup">Als Veranstalter starten <span aria-hidden="true">→</span></Link><Link className="landing-final-contact" href="/demo">Demo ansehen</Link><Link className="landing-final-contact" href="/kontakt">Fragen? Schreib uns</Link></div>
       </section>
     </main></LandingMotion>

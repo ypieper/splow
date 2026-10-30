@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 
 const require = createRequire(import.meta.url);
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const output = await mkdtemp(join(tmpdir(), "sponso-unit-tests-"));
+const output = await mkdtemp(join(tmpdir(), "splow-unit-tests-"));
 try {
   const compilation = spawnSync(process.execPath, [require.resolve("typescript/bin/tsc"), "-p", "tsconfig.tests.json", "--outDir", output], { cwd: root, stdio: "inherit" });
   if (compilation.error) throw compilation.error;

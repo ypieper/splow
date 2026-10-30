@@ -26,7 +26,7 @@ const projects = cli(["projects", "list", "--output", "json"]);
 const target = projects.find((project) => project.id === config.projectRef);
 if (!target || target.name !== config.projectName) throw new Error("Das bestätigte Testprojekt wurde nicht gefunden.");
 
-const temp = await mkdtemp(join(tmpdir(), "sponso-sandbox-tap-"));
+const temp = await mkdtemp(join(tmpdir(), "splow-sandbox-tap-"));
 let failed = false;
 let assertions = 0;
 try {

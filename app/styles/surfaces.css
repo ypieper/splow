@@ -1,4 +1,4 @@
-/* pacct design direction: warm paper, deep ink, bright actions and fewer nested cards. */
+/* Splow design direction: warm paper, deep ink, bright actions and fewer nested cards. */
 :root {
   --ink: #172b3d;
   --muted: #6f7e8e;
@@ -22,7 +22,7 @@ body, .app-frame { background: var(--canvas); }
 .sidebar { background: #142a3e; border-right-color: #21394c; }
 .sidebar .brand-mark, .mobile-drawer .brand-mark { background: linear-gradient(145deg, #f17a5b, #e96549); box-shadow: 0 5px 13px rgba(233, 101, 73, .22); }
 .brand-wordmark { display:inline-flex; align-items:center; font-weight:800; letter-spacing:-.065em; line-height:1; }
-.brand-wordmark-cc { display:inline-block; color:var(--accent); letter-spacing:-.115em; transform:rotate(-9deg) translateY(-1px); transform-origin:center; }
+.brand-wordmark-highlight { display:inline-block; color:var(--accent); letter-spacing:-.115em; transform:rotate(-9deg) translateY(-1px); transform-origin:center; }
 .brand-mark svg { display:block; width:78%; height:78%; }
 .sidebar .nav-link.active, .mobile-drawer .nav-link.active { background: linear-gradient(105deg, #f17a5b, #e96549) !important; border-color: #e96549 !important; color: #fff !important; box-shadow: 0 8px 18px rgba(10, 22, 34, .16); }
 .sidebar .sidebar-legal-links a[href="/kontakt"] { color: #ff9b7f; }

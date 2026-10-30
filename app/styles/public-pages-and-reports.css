@@ -162,12 +162,12 @@
   .account-settings-save-row .btn { width:100%; }
 }
 
-/* Printable sponsor completion report, styled like the pacct product. */
+/* Printable sponsor completion report, styled like the Splow product. */
 .completion-report-modal { width: min(100%, 820px); padding: 0; overflow: auto; }
 .completion-report-document { padding: 38px 44px 28px; color: #35485a; background: #fff; }
 .completion-report-brand-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 48px; padding-bottom: 22px; border-bottom: 1px solid #e8edf1; }
-.completion-report-pacct-brand { display: inline-flex; align-items: center; gap: 9px; color: #1c3044; font-size: 15px; font-weight: 750; letter-spacing: -.35px; }
-.completion-report-pacct-brand .brand-mark { width: 30px; height: 30px; }
+.completion-report-splow-brand { display: inline-flex; align-items: center; gap: 9px; color: #1c3044; font-size: 15px; font-weight: 750; letter-spacing: -.35px; }
+.completion-report-splow-brand .brand-mark { width: 30px; height: 30px; }
 .completion-report-logo { width: 156px; height: 48px; object-fit: contain; }
 .completion-report-organizer-name { max-width: 44%; color: #667787; font-size: 12px; font-weight: 650; text-align: right; }
 .completion-report-overline { margin-top: 32px; color: #c65a40; font-size: 10px; font-weight: 800; letter-spacing: .16em; }

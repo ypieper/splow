@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     target = data.users.find((user) => user.email?.toLowerCase() === email) ?? null;
     if (target || data.users.length < 1000) break;
   }
-  if (!target) return jsonError("Für diese E-Mail-Adresse gibt es noch kein pacct-Konto. Das Konto muss zuerst registriert werden.");
+  if (!target) return jsonError("Für diese E-Mail-Adresse gibt es noch kein Splow-Konto. Das Konto muss zuerst registriert werden.");
   const { data: existing } = await admin.from("sales_partners").select("id").eq("user_id", target.id).maybeSingle();
   if (existing) return jsonError("Dieses Konto ist bereits als Vertriebspartner angelegt.", 409);
   let referralCode = "";

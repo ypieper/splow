@@ -46,8 +46,8 @@ export function LandingMotion({ children }: { children: ReactNode }) {
         const scrollable = scrollRoot.scrollHeight - scrollRoot.clientHeight;
         const scrollTop = scrollRoot.scrollTop;
         const progress = scrollable > 0 ? Math.min(1, Math.max(0, scrollTop / scrollable)) : 0;
-        document.documentElement.style.setProperty("--pacct-scroll-progress", String(progress));
-        thread?.style.setProperty("--pacct-progress-percent", `${progress * 100}%`);
+        document.documentElement.style.setProperty("--splow-scroll-progress", String(progress));
+        thread?.style.setProperty("--splow-progress-percent", `${progress * 100}%`);
         page.style.setProperty("--landing-orbit-one-y", `${Math.min(scrollTop, 700) * 0.045}px`);
         page.style.setProperty("--landing-orbit-two-y", `${Math.min(scrollTop, 700) * -0.07}px`);
 
@@ -80,7 +80,7 @@ export function LandingMotion({ children }: { children: ReactNode }) {
       page.classList.remove("landing-motion-ready");
       page.style.removeProperty("--landing-orbit-one-y");
       page.style.removeProperty("--landing-orbit-two-y");
-      document.documentElement.style.removeProperty("--pacct-scroll-progress");
+      document.documentElement.style.removeProperty("--splow-scroll-progress");
     };
   }, []);
 

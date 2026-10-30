@@ -13,7 +13,7 @@ export async function middleware(request: NextRequest) {
   const isPublicPage = publicPages.has(pathname);
   const isPublicContactApi = pathname === "/api/contact";
   const isPublicReferralRoute = pathname.startsWith("/r/");
-  const isPublicAsset = pathname === "/pacct-icon.svg" || pathname === "/pacct-logo.svg" || pathname.startsWith("/downloads/");
+  const isPublicAsset = pathname === "/splow-icon.svg" || pathname === "/splow-logo.svg" || pathname.startsWith("/downloads/");
 
   if (isAuthCallback || isPublicPage || isPublicContactApi || isPublicReferralRoute || isPublicAsset) {
     return NextResponse.next({ request });

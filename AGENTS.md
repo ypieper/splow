@@ -1,8 +1,8 @@
-# sponso – Projektleitlinien
+# Splow – Projektleitlinien
 
 ## Produkt
 
-sponso ist eine einfache Sponsoring-Management-Web-App für kleine und mittelgroße Veranstalter. Sie soll den bislang über Excel, Word, E-Mail und Handyfotos verteilten Ablauf an einem Ort unterstützen.
+Splow ist eine einfache Sponsoring-Management-Web-App für kleine und mittelgroße Veranstalter. Sie soll den bislang über Excel, Word, E-Mail und Handyfotos verteilten Ablauf an einem Ort unterstützen.
 
 Das Kernziel umfasst:
 

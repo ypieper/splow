@@ -30,7 +30,7 @@ export function Icon({ name, size = 18 }: { name: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name] ?? paths.spark}</svg>;
 }
 
-export function SponsoLogo({ markSize = 32 }: { markSize?: number }) {
+export function SplowLogo({ markSize = 32 }: { markSize?: number }) {
   return <>
     <span className="brand-mark" style={{ width: markSize, height: markSize }} aria-hidden="true">
       <svg width="30" height="30" viewBox="0 0 64 64" fill="none">
@@ -39,6 +39,6 @@ export function SponsoLogo({ markSize = 32 }: { markSize?: number }) {
         <path d="M37 30h5" stroke="white" strokeWidth="5" strokeLinecap="round" />
       </svg>
     </span>
-    <span className="brand-wordmark"><span>pa</span><span className="brand-wordmark-cc">cc</span><span>t</span></span>
+    <span className="brand-wordmark"><span>Spl</span><span className="brand-wordmark-highlight">ow</span></span>
   </>;
 }

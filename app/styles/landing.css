@@ -1,4 +1,4 @@
-/* Public pacct landing page */
+/* Public Splow landing page */
 .landing-page { width:min(1120px,calc(100% - 48px)); margin:0 auto; padding:46px 0 76px; flex:1; color:#192d40; }
 .landing-hero { position:relative; display:grid; grid-template-columns:minmax(0,1.08fr) minmax(360px,.92fr); align-items:center; gap:40px; min-height:500px; padding:30px 24px 54px 0; isolation:isolate; }
 .landing-hero::before { position:absolute; z-index:-2; inset:-65px -7vw 0 -7vw; border-radius:48%; background:radial-gradient(ellipse at 75% 38%,rgba(255,224,214,.62),transparent 36%),radial-gradient(ellipse at 18% 65%,rgba(222,237,248,.68),transparent 33%); content:""; animation:landing-hero-breathe 8s ease-in-out infinite alternate; }
@@ -283,8 +283,8 @@
 
 /* Scroll choreography: a quiet, continuous brand-colored thread */
 .landing-scroll-thread { position:fixed; z-index:20; top:17vh; bottom:17vh; left:max(12px,calc((100vw - 1120px)/2 - 22px)); width:2px; overflow:visible; border-radius:2px; background:#dce5ec; pointer-events:none; opacity:.72; }
-.landing-scroll-thread > span { display:block; width:100%; height:100%; border-radius:inherit; background:linear-gradient(180deg,#e89d7b 0%,#e96549 58%,#4b8dc4 100%); transform:scaleY(var(--pacct-scroll-progress,0)); transform-origin:top; transition:transform .12s linear; }
-.landing-scroll-thread > i { position:absolute; top:var(--pacct-progress-percent,0%); left:50%; width:10px; height:10px; border:2px solid #fff; border-radius:50%; background:#e96549; box-shadow:0 0 0 3px rgba(233,101,73,.17); transform:translate(-50%,-50%); transition:top .12s linear; }
+.landing-scroll-thread > span { display:block; width:100%; height:100%; border-radius:inherit; background:linear-gradient(180deg,#e89d7b 0%,#e96549 58%,#4b8dc4 100%); transform:scaleY(var(--splow-scroll-progress,0)); transform-origin:top; transition:transform .12s linear; }
+.landing-scroll-thread > i { position:absolute; top:var(--splow-progress-percent,0%); left:50%; width:10px; height:10px; border:2px solid #fff; border-radius:50%; background:#e96549; box-shadow:0 0 0 3px rgba(233,101,73,.17); transform:translate(-50%,-50%); transition:top .12s linear; }
 .landing-motion-ready .landing-reveal { opacity:0; transform:translateY(28px); transition:opacity .72s cubic-bezier(.2,.75,.25,1),transform .72s cubic-bezier(.2,.75,.25,1); }
 .landing-motion-ready .landing-reveal-left { transform:translateX(-34px); }
 .landing-motion-ready .landing-reveal-right { transform:translateX(34px) scale(.985); }

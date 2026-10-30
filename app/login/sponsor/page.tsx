@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AuthForm } from "@/components/auth-form";
 import { privatePageMetadata } from "@/lib/seo";
 
-export const metadata = privatePageMetadata("Sponsor-Login", "Melde dich bei deinem pacct Sponsor-Konto an.");
+export const metadata = privatePageMetadata("Sponsor-Login", "Melde dich bei deinem Splow Sponsor-Konto an.");
 
 export default async function SponsorLoginPage({ searchParams }: { searchParams: Promise<{ registration?: string }> }) {
   const params = await searchParams;

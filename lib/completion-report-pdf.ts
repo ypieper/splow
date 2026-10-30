@@ -55,7 +55,7 @@ export async function createCompletionReportPdf({ sponsorName, eventTitle, contr
     pdf.text("s", left + 4.5, 18.2, { align: "center" });
     pdf.setTextColor(28, 48, 68);
     pdf.setFontSize(13);
-    pdf.text("pacct", left + 12, 18.5);
+    pdf.text("Splow", left + 12, 18.5);
     if (logo) {
       pdf.addImage(logo, "PNG", right - 42, 11, 42, 16, undefined, "FAST");
     } else {
@@ -198,7 +198,7 @@ export async function createCompletionReportPdf({ sponsorName, eventTitle, contr
     pdf.setTextColor(138, 150, 162);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(7);
-    pdf.text("Erstellt mit pacct", left, 286);
+    pdf.text("Erstellt mit Splow", left, 286);
     pdf.text(`${sponsorName} · ${eventTitle}`, pageWidth / 2, 286, { align: "center", maxWidth: 100 });
     pdf.text(`${page} / ${pageCount}`, right, 286, { align: "right" });
   }

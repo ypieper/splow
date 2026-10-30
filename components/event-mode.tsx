@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { TasksOverview } from "@/components/tasks-overview";
-import { EmptyState, Icon, SponsoLogo } from "@/components/ui";
+import { EmptyState, Icon, SplowLogo } from "@/components/ui";
 import { fetchStoredEventsFromDatabase, formatEventDate, formatEventDateRange, type StoredEvent } from "@/lib/events-storage";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -73,7 +73,7 @@ export function EventMode() {
   const selectedEvent = events.find((event) => event.id === selectedEventId);
 
   return <div className="mobile-shell mobile-event-mode">
-    <header className="mobile-header"><Link href="/dashboard" className="brand" aria-label="pacct Übersicht öffnen"><SponsoLogo markSize={29} /></Link><div className="mobile-header-actions"><nav className="mobile-header-mode-nav" aria-label="Event-Modus"><button className={activeTab === "event" ? "active" : ""} type="button" aria-pressed={activeTab === "event"} onClick={() => selectModeTab("event")}><Icon name="calendar" size={14}/>Event</button><button className={activeTab === "proofs" ? "active" : ""} type="button" aria-pressed={activeTab === "proofs"} onClick={() => selectModeTab("proofs")}><Icon name="camera" size={14}/>Nachweise</button></nav><Link href="/events" className="icon-button" aria-label="Zur Eventübersicht"><Icon name="chevron" size={16}/></Link></div></header>
+    <header className="mobile-header"><Link href="/dashboard" className="brand" aria-label="Splow Übersicht öffnen"><SplowLogo markSize={29} /></Link><div className="mobile-header-actions"><nav className="mobile-header-mode-nav" aria-label="Event-Modus"><button className={activeTab === "event" ? "active" : ""} type="button" aria-pressed={activeTab === "event"} onClick={() => selectModeTab("event")}><Icon name="calendar" size={14}/>Event</button><button className={activeTab === "proofs" ? "active" : ""} type="button" aria-pressed={activeTab === "proofs"} onClick={() => selectModeTab("proofs")}><Icon name="camera" size={14}/>Nachweise</button></nav><Link href="/events" className="icon-button" aria-label="Zur Eventübersicht"><Icon name="chevron" size={16}/></Link></div></header>
     <main className="mobile-content">
       <span className="live-pill"><span className="live-dot"/> NACHWEIS-MODUS</span>
       <h1>{activeTab === "event" ? "Event auswählen" : "Nachweise vor Ort"}</h1>

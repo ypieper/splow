@@ -7,22 +7,22 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://sponsor-proof.verce
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  applicationName: "pacct",
-  title: { default: "pacct – Sponsoring einfach im Blick", template: "%s | pacct" },
+  applicationName: "Splow",
+  title: { default: "Splow – Sponsoring einfach im Blick", template: "%s | Splow" },
   description: "Verwalte Sponsoren, Vereinbarungen, Leistungen, Aufgaben und Nachweise für deine Veranstaltungen an einem Ort.",
   keywords: ["Sponsoring verwalten", "Sponsorenmanagement", "Event-Sponsoring", "Sponsoring-Nachweise", "Festival organisieren"],
-  icons: { icon: "/pacct-icon.svg" },
+  icons: { icon: "/splow-icon.svg" },
   openGraph: {
     type: "website",
     locale: "de_DE",
-    siteName: "pacct",
-    title: "pacct – Sponsoring einfach im Blick",
+    siteName: "Splow",
+    title: "Splow – Sponsoring einfach im Blick",
     description: "Sponsoren, Vereinbarungen, Leistungen und Nachweise für Veranstaltungen zentral verwalten.",
     url: "/",
   },
   twitter: {
     card: "summary",
-    title: "pacct – Sponsoring einfach im Blick",
+    title: "Splow – Sponsoring einfach im Blick",
     description: "Sponsoren, Vereinbarungen, Leistungen und Nachweise für Veranstaltungen zentral verwalten.",
   },
   robots: { index: false, follow: true, googleBot: { index: false, follow: true } },

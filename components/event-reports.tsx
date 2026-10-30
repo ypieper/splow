@@ -3,7 +3,7 @@
 import { benefitWorkflowCount } from "@/lib/benefit-workflow";
 import { Modal } from "@/components/modal";
 import { useEventEntitlements } from "@/components/event-entitlements";
-import { EmptyState, Icon, Progress, SponsoLogo, Status } from "@/components/ui";
+import { EmptyState, Icon, Progress, SplowLogo, Status } from "@/components/ui";
 import { fetchStoredBenefits } from "@/lib/benefits-storage";
 import { createCompletionReportPdf } from "@/lib/completion-report-pdf";
 import { fetchContractReportStates, saveContractReportState } from "@/lib/contract-documents-storage";
@@ -293,7 +293,7 @@ export function EventReports({ eventId, eventTitle, organizerLogoUrl, sponsors, 
     {selectedReport && <Modal labelledBy="completion-report-title" className="create-modal completion-report-modal" backdropClassName="modal-backdrop completion-report-backdrop" busy={reportAction !== null} onClose={() => setSelectedReport(null)}>
       <div className="completion-report-document">
         <header className="completion-report-brand-row">
-          <div className="completion-report-pacct-brand"><SponsoLogo markSize={30}/></div>
+          <div className="completion-report-splow-brand"><SplowLogo markSize={30}/></div>
           {organizerLogoUrl ? <img className="completion-report-logo" src={organizerLogoUrl} alt={`Logo für ${eventTitle}`}/> : <span className="completion-report-organizer-name">{eventTitle}</span>}
         </header>
         <div className="completion-report-overline">LEISTUNGSNACHWEIS · SPONSORING</div>
@@ -306,7 +306,7 @@ export function EventReports({ eventId, eventTitle, organizerLogoUrl, sponsors, 
         </div>
         <div className="completion-report-section-heading"><div><span>LEISTUNGSÜBERSICHT</span><h3>Vereinbarte Leistungen</h3></div><span>{reportNumberFormat.format(selectedReport.tasks.length)} Nachweise</span></div>
         <div className="completion-report-items">{selectedReport.tasks.map((task, index) => <article className="completion-report-item" key={task.id}><span className="completion-report-item-number">{String(index + 1).padStart(2, "0")}</span><div className="completion-report-item-content"><h4>{task.title}</h4><div className="completion-report-evidence"><Icon name="file" size={15}/><span><small>NACHWEIS</small><strong>{task.evidence || "Nachweis erbracht"}</strong></span></div></div><span className="completion-report-item-check" aria-label="Nachgewiesen">✓</span></article>)}</div>
-        <footer className="completion-report-footer"><span>Erstellt mit <strong>pacct</strong></span><span>{selectedReport.sponsor.name} · {eventTitle}</span></footer>
+        <footer className="completion-report-footer"><span>Erstellt mit <strong>Splow</strong></span><span>{selectedReport.sponsor.name} · {eventTitle}</span></footer>
       </div>
       <div className="create-modal-actions completion-report-actions"><button className="btn" type="button" onClick={() => setSelectedReport(null)}>Schließen</button><button className="btn" type="button" onClick={downloadReportPdf} disabled={reportAction !== null}>{reportAction === "download" ? "PDF wird erstellt …" : "PDF herunterladen"}</button><button className="btn btn-primary" type="button" onClick={sendReportToSponsor} disabled={reportAction !== null}>{reportAction === "share" ? "Wird vorbereitet …" : "PDF teilen"}</button></div>
       {message && <p className="task-feedback completion-report-feedback" role="status">{message}</p>}

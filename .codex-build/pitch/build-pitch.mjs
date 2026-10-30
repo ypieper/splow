@@ -6,7 +6,7 @@ import { Presentation, PresentationFile } from '@oai/artifact-tool';
 const skillDir = '/Users/yannickpieper/.codex/plugins/cache/openai-primary-runtime/presentations/26.1013.11914/skills/presentations';
 const workspaceDir = '/Users/yannickpieper/Documents/ChatGPT/SponsorProof';
 const buildDir = path.join(workspaceDir, '.codex-build/pitch');
-const finalPath = path.join(workspaceDir, 'output/presentations/sponso-pitch-fuer-veranstalter-v2.pptx');
+const finalPath = path.join(workspaceDir, 'output/presentations/splow-pitch-fuer-veranstalter-v2.pptx');
 const draftPath = path.join(buildDir, 'draft.pptx');
 const W = 1280, H = 720;
 const C = { navy:'#192d40', orange:'#e75b40', coral:'#ff8769', paper:'#f4f7fa', white:'#ffffff', muted:'#78899b', pale:'#fcece7', line:'#dce5ec', green:'#3aa782', blue:'#4b8dc4' };
@@ -28,7 +28,7 @@ function dot(slide,x,y,size,color=C.orange) { shape(slide,'ellipse',x,y,size,siz
 function brand(slide, light=false) {
   shape(slide,'roundRect',72,52,42,42,C.orange,'none',0,13);
   text(slide,'s',78,52,30,42,31,C.white,true,'center');
-  text(slide,'sponso',126,52,160,42,28,light?C.white:C.navy,true);
+  text(slide,'Splow',126,52,160,42,28,light?C.white:C.navy,true);
 }
 function footer(slide,n, light=false) {
   text(slide,'Sponsoring einfach organisiert',72,675,500,20,13,light?'#bdc8d1':C.muted,false);
@@ -55,14 +55,14 @@ function heading(slide, eyebrow, title, subtitle) {
  line(s,944,432,180,C.line,2);
  dot(s,965,466,14,C.green); text(s,'Event im Blick',990,458,120,28,16,C.navy,true);
  shape(s,'roundRect',72,54,42,42,C.orange,'none',0,13); text(s,'s',78,54,30,42,31,C.white,true,'center');
- text(s,'sponso',126,54,160,42,28,C.white,true);
+ text(s,'Splow',126,54,160,42,28,C.white,true);
  text(s,'SPONSORING FÜR VERANSTALTER',72,184,620,28,15,C.coral,true);
  text(s,'Weniger Abstimmung.\nMehr Überblick.',72,236,730,152,54,C.white,true);
  text(s,'Von der Vereinbarung bis zum Leistungsnachweis –\nalles rund um Sponsoring an einem Ort.',76,421,690,74,23,'#d3dce4',false);
  line(s,76,548,620,'#43586b',2);
  text(s,'Für Festivals, Stadtfeste, Vereine und Open-Air-Events',76,572,680,36,17,'#bdc8d1',false);
  text(s,'01',1180,675,28,20,13,'#bdc8d1',true,'right');
- s.speakerNotes.text='Einstieg: Sponsoring läuft in vielen Organisationen über mehrere Werkzeuge. sponso bündelt den Ablauf vom Deal bis zum Nachweis.';
+ s.speakerNotes.text='Einstieg: Sponsoring läuft in vielen Organisationen über mehrere Werkzeuge. Splow bündelt den Ablauf vom Deal bis zum Nachweis.';
 }
 // 2 — The problem
 {
@@ -79,11 +79,11 @@ function heading(slide, eyebrow, title, subtitle) {
    text(s,c.d,c.x,414,310,76,19,C.muted,false);
  }
  text(s,'Die Folge: unnötige Rückfragen – und ein Abschluss, der mehr Arbeit macht als nötig.',82,562,1060,48,22,C.navy,true);
- footer(s,2); s.speakerNotes.text='Nicht die Partnerschaft ist kompliziert – ihre Informationen sind über zu viele Orte verteilt. Genau dort setzt sponso an.';
+ footer(s,2); s.speakerNotes.text='Nicht die Partnerschaft ist kompliziert – ihre Informationen sind über zu viele Orte verteilt. Genau dort setzt Splow an.';
 }
 // 3 — Workflow
 {
- const s=presentation.slides.add(); s.background.fill=C.white; brand(s); heading(s,'Ein durchgängiger Prozess','Vom Sponsoring-Deal zum sichtbaren Ergebnis.','sponso verbindet Vereinbarungen, Aufgaben und Nachweise in einem Event.');
+ const s=presentation.slides.add(); s.background.fill=C.white; brand(s); heading(s,'Ein durchgängiger Prozess','Vom Sponsoring-Deal zum sichtbaren Ergebnis.','Splow verbindet Vereinbarungen, Aufgaben und Nachweise in einem Event.');
  const steps=[
   {x:78,n:'1',t:'Vereinbaren',d:'Sponsoren, Verträge\nund Leistungen bündeln'},
   {x:365,n:'2',t:'Organisieren',d:'Aus Leistungen werden\nkonkrete Aufgaben'},
@@ -123,15 +123,15 @@ function heading(slide, eyebrow, title, subtitle) {
  const s=presentation.slides.add(); s.background.fill=C.navy;
  shape(s,'ellipse',930,0,350,350,'#233b50');
  shape(s,'ellipse',960,420,320,300,'#20364b');
- shape(s,'roundRect',72,54,42,42,C.orange,'none',0,13); text(s,'s',78,54,30,42,31,C.white,true,'center'); text(s,'sponso',126,54,160,42,28,C.white,true);
+ shape(s,'roundRect',72,54,42,42,C.orange,'none',0,13); text(s,'s',78,54,30,42,31,C.white,true,'center'); text(s,'Splow',126,54,160,42,28,C.white,true);
  text(s,'MEHR ÜBERBLICK. WENIGER SUCHEN.',72,184,760,26,15,C.coral,true);
  text(s,'Damit Sponsoring\nauch im Alltag wirkt.',72,238,790,150,50,C.white,true);
  text(s,'Vereinbarungen werden zu Aufgaben.\nAufgaben werden zu nachvollziehbaren Nachweisen.',76,428,700,76,22,'#d3dce4',false);
  line(s,76,552,660,'#43586b',2);
- text(s,'sponso',76,580,180,36,24,C.white,true);
+ text(s,'Splow',76,580,180,36,24,C.white,true);
  text(s,'Sponsoring einfach organisiert.',239,582,430,32,18,'#bdc8d1',false);
  text(s,'05',1180,675,28,20,13,'#bdc8d1',true,'right');
- s.speakerNotes.text='Abschluss: sponso hilft dabei, den Sponsoringprozess vom Vereinbaren bis zum dokumentierten Ergebnis zusammenzuhalten. Übergang: Fragen, konkretes Event oder Beispielablauf besprechen.';
+ s.speakerNotes.text='Abschluss: Splow hilft dabei, den Sponsoringprozess vom Vereinbaren bis zum dokumentierten Ergebnis zusammenzuhalten. Übergang: Fragen, konkretes Event oder Beispielablauf besprechen.';
 }
 
 await fs.mkdir(buildDir,{recursive:true});

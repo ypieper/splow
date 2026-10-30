@@ -24,4 +24,4 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-key
-          NEXT_PUBLIC_SITE_URL: https://sponso.example
+          NEXT_PUBLIC_SITE_URL: https://splow.example

@@ -239,7 +239,7 @@
 .admin-table-workspace strong { overflow:hidden; color:#344452; font-size:10px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
 .admin-table-workspace select { width:max-content; max-width:100%; }
 .admin-table-workspace small { color:#9aa4ad; font-size:10px; }
-.admin-table-workspace .admin-table-pacct-id { color:#718092; font-size:9px; font-variant-numeric:tabular-nums; }
+.admin-table-workspace .admin-table-Splow-id { color:#718092; font-size:9px; font-variant-numeric:tabular-nums; }
 .admin-account-type-badge { display:inline-flex; width:max-content; align-items:center; border-radius:999px; padding:5px 8px; background:#edf4fa; color:#456f8d; font-size:9px; font-weight:700; white-space:nowrap; }
 .admin-account-type-badge.sponsor { background:#f3effb; color:#7057a2; }
 .admin-account-type-badge.admin { background:#fff0f8; color:#ae347b; }

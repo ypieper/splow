@@ -228,16 +228,16 @@ h3 { font-weight: 650; }
 .settings-section-icon { width: 31px; height: 31px; flex: none; display: grid; place-items: center; border-radius: 9px; color: var(--accent-strong); background: var(--accent-soft); }
 .settings-section-heading h2 { margin: 1px 0 4px; color: #263545; font-size: 13px; }
 .settings-section-heading p { margin: 0; color: #89939e; font-size: 11px; line-height: 1.5; }
-.settings-pacct-id { display:flex; align-items:center; justify-content:flex-start; gap:12px; width:max-content; max-width:100%; margin:0 0 16px auto; padding:10px 12px; border:1px solid #e8edf0; border-radius:10px; background:#f8fafb; }
-.settings-pacct-id span { color:#718090; font-size:11px; font-weight:650; }
-.settings-pacct-id code { min-width:0; color:#34495c; font-size:11px; overflow-wrap:anywhere; }
-.settings-section-heading-id > div:not(.settings-pacct-id) { flex:1; min-width:0; }
-.settings-section-heading-id .settings-pacct-id { flex:none; margin:0 0 0 auto; }
+.settings-Splow-id { display:flex; align-items:center; justify-content:flex-start; gap:12px; width:max-content; max-width:100%; margin:0 0 16px auto; padding:10px 12px; border:1px solid #e8edf0; border-radius:10px; background:#f8fafb; }
+.settings-Splow-id span { color:#718090; font-size:11px; font-weight:650; }
+.settings-Splow-id code { min-width:0; color:#34495c; font-size:11px; overflow-wrap:anywhere; }
+.settings-section-heading-id > div:not(.settings-Splow-id) { flex:1; min-width:0; }
+.settings-section-heading-id .settings-Splow-id { flex:none; margin:0 0 0 auto; }
 @media (max-width:700px) {
   .settings-section-heading-id { display:grid; grid-template-columns:31px minmax(0,1fr); align-items:center; }
   .settings-section-heading-id .settings-section-icon { grid-column:1; grid-row:1; }
-  .settings-section-heading-id > div:not(.settings-pacct-id) { grid-column:2; grid-row:1; }
-  .settings-section-heading-id .settings-pacct-id { grid-column:2; grid-row:2; justify-self:end; margin:8px 0 0; }
+  .settings-section-heading-id > div:not(.settings-Splow-id) { grid-column:2; grid-row:1; }
+  .settings-section-heading-id .settings-Splow-id { grid-column:2; grid-row:2; justify-self:end; margin:8px 0 0; }
 }
 .account-event-tariffs-list { display:grid; gap:9px; }
 .account-event-tariff-row { display:grid; grid-template-columns:minmax(140px,1fr) minmax(190px,auto) auto; align-items:center; gap:12px; padding:13px 14px; border:1px solid #e7edf1; border-radius:12px; background:#fff; }

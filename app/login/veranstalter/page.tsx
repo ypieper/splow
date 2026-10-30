@@ -1,7 +1,7 @@
 import { AuthForm } from "@/components/auth-form";
 import { privatePageMetadata } from "@/lib/seo";
 
-export const metadata = privatePageMetadata("Veranstalter-Login", "Melde dich bei deinem pacct Veranstalterkonto an.");
+export const metadata = privatePageMetadata("Veranstalter-Login", "Melde dich bei deinem Splow Veranstalterkonto an.");
 
 export default async function OrganizerLoginPage({ searchParams }: { searchParams: Promise<{ mode?: string; referral?: string; confirmation?: string }> }) {
   const params = await searchParams;
