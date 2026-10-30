@@ -34,9 +34,12 @@ export function SplowLogo({ markSize = 32 }: { markSize?: number }) {
   return <>
     <span className="brand-mark" style={{ width: markSize, height: markSize }} aria-hidden="true">
       <svg width="30" height="30" viewBox="0 0 64 64" fill="none">
-        <path d="M18 51V19a4 4 0 0 1 4-4h11a13 13 0 1 1 0 26H18" stroke="white" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M51 28h-5a11 11 0 1 0 0 22h5" stroke="#F9C7B9" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M37 30h5" stroke="white" strokeWidth="5" strokeLinecap="round" />
+        <g strokeLinecap="round" strokeLinejoin="round">
+          <path d="M27 28c-3-8-11-10-14-6-3 4 1 10 10 12M37 28c3-8 11-10 14-6 3 4-1 10-10 12" stroke="#F9C7B9" strokeWidth="4.5" />
+          <path d="M28 25c-2-5-5-8-9-9M36 25c2-5 5-8 9-9" stroke="white" strokeWidth="3.5" />
+          <path d="M32 25c-7 0-11 5-11 13 0 9 5 16 11 19 6-3 11-10 11-19 0-8-4-13-11-13Z" fill="white" />
+          <path d="M22 35c5 3 17 3 20 0M23.5 42c4 3 13 3 17 0" stroke="#192D40" strokeWidth="4" />
+        </g>
       </svg>
     </span>
     <span className="brand-wordmark"><span>Spl</span><span className="brand-wordmark-highlight">ow</span></span>
