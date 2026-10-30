@@ -12,19 +12,17 @@ export async function POST(request: Request, context: Context) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return NextResponse.json({ error: "Bitte melde dich erneut an." }, { status: 401 });
 
-  const payload = await request.json().catch(() => ({})) as { signingDocumentId?: string };
-  if (typeof payload.signingDocumentId !== "string" || !isUuid(payload.signingDocumentId)) {
-    return NextResponse.json({ error: "Bitte wähle zuerst eine Vertrags-PDF aus." }, { status: 400 });
-  }
+  const payload = await request.json().catch(() => ({})) as { signingDocumentId?: string; contractId?: string };
 
   try {
     const admin = createAdminClient();
     let contractId = routeContractId;
-    if (!isUuid(contractId)) {
-      // Recover the contract through the selected PDF when a stale page submits
-      // an invalid route id. Access and payment are still verified below.
+    if (!isUuid(contractId) && typeof payload.contractId === "string" && isUuid(payload.contractId)) {
+      contractId = payload.contractId;
+    }
+    if (!isUuid(contractId) && typeof signingDocumentId === "string" && isUuid(signingDocumentId)) {
       const { data: selectedDocument, error: selectedDocumentError } = await admin.from("contract_documents")
-        .select("contract_id").eq("id", payload.signingDocumentId).maybeSingle();
+        .select("contract_id").eq("id", signingDocumentId).maybeSingle();
       if (selectedDocumentError) throw selectedDocumentError;
       contractId = selectedDocument?.contract_id ?? "";
     }
@@ -40,9 +38,23 @@ export async function POST(request: Request, context: Context) {
     if (!ownsEvent) return NextResponse.json({ error: "Du hast keinen Zugriff auf diesen Vertrag." }, { status: 403 });
     if (contract.signature_status !== "draft") return NextResponse.json({ error: "Der Zeichnungsablauf wurde bereits gestartet." }, { status: 409 });
 
+    let signingDocumentId = typeof signingDocumentId === "string" && isUuid(signingDocumentId)
+      ? signingDocumentId
+      : "";
+    if (!signingDocumentId) {
+      const { data: paidPayment, error: paidPaymentError } = await admin.from("contract_signature_payments")
+        .select("signing_document_id").eq("contract_id", contractId).eq("payment_status", "paid")
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (paidPaymentError) throw paidPaymentError;
+      signingDocumentId = paidPayment?.signing_document_id ?? "";
+    }
+    if (!isUuid(signingDocumentId)) {
+      return NextResponse.json({ error: "Für diesen Vertrag wurde keine bezahlte Vertrags-PDF gefunden. Wähle die bezahlte Datei erneut aus." }, { status: 400 });
+    }
+
     const [{ data: enabled, error: entitlementError }, { data: document, error: documentError }] = await Promise.all([
       admin.rpc("event_signature_addon_enabled", { target_event_id: contract.event_id }),
-      admin.from("contract_documents").select("id").eq("id", payload.signingDocumentId).eq("contract_id", contractId)
+      admin.from("contract_documents").select("id").eq("id", signingDocumentId).eq("contract_id", contractId)
         .in("kind", ["generated_pdf", "uploaded_pdf"]).maybeSingle(),
     ]);
     if (entitlementError || documentError) throw entitlementError ?? documentError;
@@ -50,12 +62,12 @@ export async function POST(request: Request, context: Context) {
     if (!document) return NextResponse.json({ error: "Die gewählte Vertrags-PDF wurde nicht gefunden." }, { status: 404 });
 
     const { data: payment, error: paymentError } = await admin.from("contract_signature_payments")
-      .select("id").eq("contract_id", contractId).eq("signing_document_id", payload.signingDocumentId).eq("payment_status", "paid").maybeSingle();
+      .select("id").eq("contract_id", contractId).eq("signing_document_id", signingDocumentId).eq("payment_status", "paid").maybeSingle();
     if (paymentError) throw paymentError;
     if (!payment) return NextResponse.json({ error: "Bezahle zuerst die Gebühr für diese PDF." }, { status: 402 });
 
     const { data: updated, error: updateError } = await admin.from("contracts")
-      .update({ signing_document_id: payload.signingDocumentId })
+      .update({ signing_document_id: signingDocumentId })
       .eq("id", contractId).eq("signature_status", "draft").select("id").maybeSingle();
     if (updateError) throw updateError;
     if (!updated) return NextResponse.json({ error: "Der Vertrag kann nicht mehr zur Zeichnung freigegeben werden." }, { status: 409 });
@@ -63,7 +75,7 @@ export async function POST(request: Request, context: Context) {
     const { error: releaseError } = await supabase.rpc("start_simple_contract_signing", { target_contract_id: contractId });
     if (releaseError) {
       await admin.from("contracts").update({ signing_document_id: null })
-        .eq("id", contractId).eq("signature_status", "draft").eq("signing_document_id", payload.signingDocumentId);
+        .eq("id", contractId).eq("signature_status", "draft").eq("signing_document_id", signingDocumentId);
       if (releaseError.message.includes("CONTRACT_SIGNATURE_PAYMENT_REQUIRED")) {
         return NextResponse.json({ error: "Bezahle zuerst die Gebühr für diese PDF." }, { status: 402 });
       }
