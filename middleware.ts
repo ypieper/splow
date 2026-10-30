@@ -64,7 +64,10 @@ export async function middleware(request: NextRequest) {
   if (!isAuthenticated && !isLoginPage) {
     const url = request.nextUrl.clone();
     url.pathname = isAdminPage ? "/admin/login" : "/login";
-    if (request.nextUrl.pathname === "/team/join") {
+    if (!isAdminPage && pathname.startsWith("/events/") && request.nextUrl.searchParams.get("signature_payment") === "success") {
+      const next = `${pathname}${request.nextUrl.search}`;
+      url.search = new URLSearchParams({ type: "organizer", next }).toString();
+    } else if (request.nextUrl.pathname === "/team/join") {
       const token = request.nextUrl.searchParams.get("token") ?? "";
       url.search = new URLSearchParams({ mode: "signup", next: `/team/join?token=${token}` }).toString();
     }
