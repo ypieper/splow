@@ -25,5 +25,5 @@ export function DashboardGreeting() {
     };
   }, []);
 
-  return <div className="page-heading dashboard-greeting"><div><div className="eyebrow">ÜBERSICHT</div><h1>Guten Tag, {firstName}</h1><p className="subtitle">Dein aktueller Stand und die nächsten Schritte auf einen Blick.</p></div></div>;
+  return <div className="page-heading dashboard-greeting"><div><div className="eyebrow">DASHBOARD</div><h1>Guten Tag, {firstName}</h1><p className="subtitle">Dein aktueller Stand und die nächsten Schritte auf einen Blick.</p></div></div>;
 }
