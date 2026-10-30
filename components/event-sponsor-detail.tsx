@@ -230,11 +230,21 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
     return () => { cancelled = true; };
   }, [contract.id]);
 
+  // Stripe can return to this page through the browser's back/forward cache.
+  // In that case React state survives the trip and would leave the contract
+  // screen in its in-progress state after the checkout was cancelled.
+  useEffect(() => {
+    const resetCheckoutState = () => setSigningBusy(false);
+    window.addEventListener("pageshow", resetCheckoutState);
+    return () => window.removeEventListener("pageshow", resetCheckoutState);
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("contract_id") !== contract.id) return;
     const paymentResult = params.get("signature_payment");
     if (paymentResult === "cancelled") {
+      setSigningBusy(false);
       params.delete("signature_payment"); params.delete("contract_id"); params.delete("session_id");
       window.history.replaceState(null, "", `${window.location.pathname}${params.size ? `?${params}` : ""}`);
       setMessage("Die Zahlung wurde abgebrochen. Der Vertrag ist noch nicht zur Zeichnung freigegeben.");
