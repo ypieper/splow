@@ -6,8 +6,7 @@ type Context = { params: Promise<{ id: string }> };
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
 
 export async function POST(request: Request, context: Context) {
-  const { id } = await context.params;
-  if (!isUuid(id)) return NextResponse.json({ error: "Ungültiger Vertrag." }, { status: 400 });
+  const { id: routeContractId } = await context.params;
 
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -20,9 +19,20 @@ export async function POST(request: Request, context: Context) {
 
   try {
     const admin = createAdminClient();
+    let contractId = routeContractId;
+    if (!isUuid(contractId)) {
+      // Recover the contract through the selected PDF when a stale page submits
+      // an invalid route id. Access and payment are still verified below.
+      const { data: selectedDocument, error: selectedDocumentError } = await admin.from("contract_documents")
+        .select("contract_id").eq("id", payload.signingDocumentId).maybeSingle();
+      if (selectedDocumentError) throw selectedDocumentError;
+      contractId = selectedDocument?.contract_id ?? "";
+    }
+    if (!isUuid(contractId)) return NextResponse.json({ error: "Der Vertragsbezug ist ungültig. Lade die Seite neu und versuche es erneut." }, { status: 400 });
+
     const { data: contract, error: contractError } = await admin.from("contracts")
       .select("id, event_id, signature_status")
-      .eq("id", id).maybeSingle();
+      .eq("id", contractId).maybeSingle();
     if (contractError || !contract) return NextResponse.json({ error: "Der Vertrag wurde nicht gefunden." }, { status: 404 });
 
     const { data: ownsEvent, error: ownsError } = await supabase.rpc("owns_event", { target_event_id: contract.event_id });
