@@ -17,45 +17,78 @@ export async function GET(_request: Request, context: Context) {
 
   try {
     const admin = createAdminClient();
-    const { data: contract, error } = await admin.from("contracts")
+    const { data: contract, error: contractError } = await admin.from("contracts")
       .select("id, event_id, sponsor_id, signature_status, signed_at, sponsor_signed_at, organizer_signed_at, signing_provider, signing_request_id")
       .eq("id", id).maybeSingle();
-    if (error || !contract) return NextResponse.json({ error: "Der Vertrag wurde nicht gefunden." }, { status: 404 });
-    let signerRole: "sponsor" | "organizer" | "viewer";
-    if (contract.signature_status === "pending_sponsor") {
-      const { data: memberships, error: membershipsError } = await admin.from("sponsor_account_members").select("account_id").eq("user_id", user.id);
-      if (membershipsError) throw membershipsError;
-      const accountIds = (memberships ?? []).map((row) => row.account_id);
-      const { data: link, error: linkError } = accountIds.length ? await admin.from("sponsor_event_accounts").select("event_id")
-        .eq("event_id", contract.event_id).eq("sponsor_id", contract.sponsor_id).in("account_id", accountIds).limit(1).maybeSingle() : { data: null, error: null };
-      if (linkError) throw linkError;
-      if (link) signerRole = "sponsor";
-      else {
-        const { data: ownsEvent, error: ownsError } = await supabase.rpc("owns_event", { target_event_id: contract.event_id });
-        if (ownsError) throw ownsError;
-        if (!ownsEvent) return NextResponse.json({ error: "Du hast keinen Zugriff auf diesen Vertrag." }, { status: 403 });
-        signerRole = "viewer";
-      }
-    } else {
-      const { data: ownsEvent, error: ownsError } = await supabase.rpc("owns_event", { target_event_id: contract.event_id });
-      if (ownsError) throw ownsError;
-      if (!ownsEvent || !["pending_organizer", "signed"].includes(contract.signature_status)) return NextResponse.json({ error: "Du hast keinen Zugriff auf diesen Vertrag." }, { status: 403 });
-      signerRole = "organizer";
-    }
+    if (contractError || !contract) return NextResponse.json({ error: "Der Vertrag wurde nicht gefunden." }, { status: 404 });
 
-    let signingUrl: string | null = null;
-    if (contract.signing_provider === "firma" && contract.signing_request_id && contract.signature_status !== "signed" && signerRole !== "viewer") {
+    const [{ data: memberships, error: membershipsError }, { data: ownsEvent, error: ownsError }] = await Promise.all([
+      admin.from("sponsor_account_members").select("account_id").eq("user_id", user.id),
+      supabase.rpc("owns_event", { target_event_id: contract.event_id }),
+    ]);
+    if (membershipsError || ownsError) throw membershipsError ?? ownsError;
+    const accountIds = (memberships ?? []).map((row) => row.account_id);
+    const { data: sponsorLink, error: sponsorLinkError } = accountIds.length
+      ? await admin.from("sponsor_event_accounts").select("event_id").eq("event_id", contract.event_id).eq("sponsor_id", contract.sponsor_id).in("account_id", accountIds).limit(1).maybeSingle()
+      : { data: null, error: null };
+    if (sponsorLinkError) throw sponsorLinkError;
+    const isSponsor = Boolean(sponsorLink);
+    const isOrganizer = ownsEvent === true;
+    if (!isSponsor && !isOrganizer) return NextResponse.json({ error: "Du hast keinen Zugriff auf diesen Vertrag." }, { status: 403 });
+
+    let currentContract = contract;
+    let users: Awaited<ReturnType<typeof getFirmaSigningUsers>> = [];
+    let eventEmail = "";
+    let sponsorEmail = "";
+    if (contract.signing_provider === "firma" && contract.signing_request_id) {
       const [{ data: event, error: eventError }, { data: sponsor, error: sponsorError }] = await Promise.all([
         admin.from("events").select("organization_id, contact_email").eq("id", contract.event_id).maybeSingle(),
         admin.from("sponsors").select("email").eq("id", contract.sponsor_id).maybeSingle(),
       ]);
       if (eventError || sponsorError) throw eventError ?? sponsorError;
-      const { data: owner, error: ownerError } = event?.organization_id ? await admin.from("organization_members").select("email")
-        .eq("organization_id", event.organization_id).eq("role", "owner").limit(1).maybeSingle() : { data: null, error: null };
+      sponsorEmail = sponsor?.email?.trim().toLowerCase() ?? "";
+      const { data: owner, error: ownerError } = event?.organization_id
+        ? await admin.from("organization_members").select("email").eq("organization_id", event.organization_id).eq("role", "owner").limit(1).maybeSingle()
+        : { data: null, error: null };
       if (ownerError) throw ownerError;
-      const targetEmail = (signerRole === "sponsor" ? sponsor?.email : event?.contact_email || owner?.email)?.trim().toLowerCase();
-      if (!targetEmail) return NextResponse.json({ error: "Für diese Zeichnung ist keine Empfänger-E-Mail-Adresse hinterlegt." }, { status: 409 });
-      const users = await getFirmaSigningUsers(contract.signing_request_id);
+      eventEmail = (event?.contact_email || owner?.email || "").trim().toLowerCase();
+      users = await getFirmaSigningUsers(contract.signing_request_id);
+
+      const signers = users.map((recipient) => {
+        const email = recipient.email?.trim().toLowerCase();
+        const role = recipient.order === 1 || (email && email === sponsorEmail)
+          ? "sponsor"
+          : recipient.order === 2 || (email && email === eventEmail) ? "organizer" : null;
+        return { role, signedAt: recipient.signed_at };
+      }).filter((recipient): recipient is { role: "sponsor" | "organizer"; signedAt: string } => Boolean(recipient.role && recipient.signedAt))
+        .sort((left, right) => left.role === right.role ? 0 : left.role === "sponsor" ? -1 : 1);
+
+      for (const signer of signers) {
+        const { error: recordError } = await admin.rpc("record_contract_signature", {
+          target_contract_id: contract.id,
+          signer_role: signer.role,
+          occurred_at: signer.signedAt,
+        });
+        if (recordError) throw recordError;
+      }
+
+      const { data: refreshedContract, error: refreshError } = await admin.from("contracts")
+        .select("id, event_id, sponsor_id, signature_status, signed_at, sponsor_signed_at, organizer_signed_at, signing_provider, signing_request_id")
+        .eq("id", contract.id).maybeSingle();
+      if (refreshError) throw refreshError;
+      if (refreshedContract) currentContract = refreshedContract;
+    }
+
+    const signerRole = currentContract.signature_status === "pending_sponsor"
+      ? isSponsor ? "sponsor" : "viewer"
+      : currentContract.signature_status === "pending_organizer"
+        ? isOrganizer ? "organizer" : "viewer"
+        : isOrganizer ? "organizer" : "sponsor";
+    let signingUrl: string | null = null;
+    const requiredRole = currentContract.signature_status === "pending_sponsor" ? "sponsor"
+      : currentContract.signature_status === "pending_organizer" ? "organizer" : null;
+    if (currentContract.signing_provider === "firma" && currentContract.signing_request_id && requiredRole === signerRole) {
+      const targetEmail = signerRole === "sponsor" ? sponsorEmail : eventEmail;
       const recipient = users.find((item) => item.email?.trim().toLowerCase() === targetEmail)
         ?? users.find((item) => item.order === (signerRole === "sponsor" ? 1 : 2));
       if (!recipient?.id) return NextResponse.json({ error: "Der Signaturlink konnte bei Firma nicht gefunden werden." }, { status: 502 });
@@ -63,12 +96,13 @@ export async function GET(_request: Request, context: Context) {
     }
 
     return NextResponse.json({
-      signatureStatus: contract.signed_at ? "signed" : contract.signature_status,
-      sponsorSignedAt: contract.sponsor_signed_at,
-      organizerSignedAt: contract.organizer_signed_at,
+      signatureStatus: currentContract.signed_at ? "signed" : currentContract.signature_status,
+      sponsorSignedAt: currentContract.sponsor_signed_at,
+      organizerSignedAt: currentContract.organizer_signed_at,
       signingUrl,
     }, { headers: { "Cache-Control": "no-store" } });
-  } catch {
+  } catch (error) {
+    console.error("Contract signature status sync failed", error);
     return NextResponse.json({ error: "Der Zeichnungsstatus konnte nicht geladen werden." }, { status: 500 });
   }
 }
