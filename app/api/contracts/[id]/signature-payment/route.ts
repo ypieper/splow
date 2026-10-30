@@ -147,7 +147,6 @@ export async function POST(request: Request, context: Context) {
       cancel.searchParams.set("contract_id", id);
       const form = new URLSearchParams();
       form.set("mode", "payment");
-      form.set("payment_method_types[0]", "card");
       form.set("line_items[0][price_data][currency]", "eur");
       form.set("line_items[0][price_data][unit_amount]", String(reservation.amount_cents));
       form.set("line_items[0][price_data][product_data][name]", "Digitale Vertragszeichnung");
@@ -176,6 +175,7 @@ export async function POST(request: Request, context: Context) {
     if (error instanceof Error && error.message === "STRIPE_SECRET_KEY is not configured") {
       return NextResponse.json({ error: "Stripe ist noch nicht konfiguriert. Bitte hinterlege STRIPE_SECRET_KEY in Vercel." }, { status: 503 });
     }
+    console.error("[contracts/signature-payment] Checkout start failed", error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json({ error: "Der Bezahlvorgang konnte nicht gestartet werden. Bitte versuche es erneut." }, { status: 500 });
   }
 }

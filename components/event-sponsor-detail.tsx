@@ -22,6 +22,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createStoredTasks, deleteStoredTasks, fetchStoredTasks, normalizeLegacyBenefitTaskInstances, updateStoredTask, type StoredTaskRecord, type TaskInput } from "@/lib/tasks-storage";
 import Link from "next/link";
+import Script from "next/script";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 type CompletionType = "file_required" | "organizer_approval" | "sponsor_approval" | "sponsor_upload";
@@ -35,6 +36,10 @@ type StoredGeneratedContracts = { pdf?: ContractDocument; docx?: ContractDocumen
 type AssignedTemplate = { name: string; storagePath: string; file: Blob };
 type EventSponsorTab = "Vertrag" | "Rechnung" | "Leistungen" | "Dokumente";
 const SPONSOR_ASSIGNEE = "__sponsor__";
+
+type StripeEmbeddedCheckoutInstance = { mount: (target: HTMLElement) => void; destroy: () => void };
+type StripeClient = { createEmbeddedCheckoutPage: (options: { fetchClientSecret: () => Promise<string> }) => Promise<StripeEmbeddedCheckoutInstance> };
+declare global { interface Window { Stripe?: (publishableKey: string) => StripeClient } }
 
 function grossValueFromNet(netValue: number) {
   return Math.round((netValue * 1.19 + Number.EPSILON) * 100) / 100;
@@ -138,6 +143,14 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
   const [signingBusy, setSigningBusy] = useState(false);
   const [firmaSigningContractId, setFirmaSigningContractId] = useState("");
   const [activeTab, setActiveTab] = useState<EventSponsorTab>("Leistungen");
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutClientSecret, setCheckoutClientSecret] = useState("");
+  const [checkoutError, setCheckoutError] = useState("");
+  const [stripeScriptReady, setStripeScriptReady] = useState(false);
+  const embeddedCheckoutRef = useRef<HTMLDivElement>(null);
+  const embeddedCheckoutInstanceRef = useRef<StripeEmbeddedCheckoutInstance | null>(null);
+  const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
   const [showContractOutput, setShowContractOutput] = useState(false);
   const [contractTemplate, setContractTemplate] = useState<AssignedTemplate | null>(null);
   const [templateLoading, setTemplateLoading] = useState(false);
@@ -198,11 +211,46 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
 
   useEffect(() => {
     const storageKey = `sponso:event-sponsor-tab:${eventId}:${contract.id}`;
+    const requestedTab = new URLSearchParams(window.location.search).get("sponsor_tab");
+    if (requestedTab && (["Leistungen", "Vertrag", "Rechnung", "Dokumente"] as string[]).includes(requestedTab)) {
+      setActiveTab(requestedTab as EventSponsorTab);
+      window.sessionStorage.setItem(storageKey, requestedTab);
+      return;
+    }
     const storedTab = window.sessionStorage.getItem(storageKey);
     if (storedTab && (["Leistungen", "Vertrag", "Rechnung", "Dokumente"] as string[]).includes(storedTab)) {
       setActiveTab(storedTab as EventSponsorTab);
     }
   }, [contract.id, eventId]);
+
+  useEffect(() => {
+    if (!checkoutOpen || !checkoutClientSecret || !stripeScriptReady) return;
+    const target = embeddedCheckoutRef.current;
+    if (!target) return;
+    let active = true;
+    let checkout: StripeEmbeddedCheckoutInstance | null = null;
+    void (async () => {
+      if (!stripePublishableKey) throw new Error("Der Stripe-Schlüssel fehlt. Hinterlege NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY in Vercel und veröffentliche die Änderung erneut.");
+      const stripe = window.Stripe?.(stripePublishableKey);
+      if (!stripe) throw new Error("Stripe konnte nicht geladen werden. Bitte prüfe deine Verbindung und versuche es erneut.");
+      checkout = await stripe.createEmbeddedCheckoutPage({ fetchClientSecret: async () => checkoutClientSecret });
+      if (!active) { checkout.destroy(); return; }
+      embeddedCheckoutInstanceRef.current = checkout;
+      checkout.mount(target);
+      setCheckoutLoading(false);
+      setSigningBusy(false);
+    })().catch((error) => {
+      if (!active) return;
+      setCheckoutError(error instanceof Error ? error.message : "Der Bezahlvorgang konnte nicht angezeigt werden.");
+      setCheckoutLoading(false);
+      setSigningBusy(false);
+    });
+    return () => {
+      active = false;
+      checkout?.destroy();
+      embeddedCheckoutInstanceRef.current = null;
+    };
+  }, [checkoutClientSecret, checkoutOpen, stripePublishableKey, stripeScriptReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -232,31 +280,59 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
     return () => { cancelled = true; };
   }, [contract.id]);
 
+  // Stripe can return to this page through the browser's back/forward cache.
+  // In that case React state survives the trip and would leave the contract
+  // screen in its in-progress state after the checkout was cancelled.
+  useEffect(() => {
+    const resetCheckoutState = () => setSigningBusy(false);
+    window.addEventListener("pageshow", resetCheckoutState);
+    return () => window.removeEventListener("pageshow", resetCheckoutState);
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("contract_id") !== contract.id) return;
     const paymentResult = params.get("signature_payment");
+    const sessionId = params.get("session_id");
+    if (params.get("contract_id") !== contract.id && !(paymentResult === "success" && sessionId)) return;
     if (paymentResult === "cancelled") {
+      setSigningBusy(false);
       params.delete("signature_payment"); params.delete("contract_id"); params.delete("session_id");
       window.history.replaceState(null, "", `${window.location.pathname}${params.size ? `?${params}` : ""}`);
       setMessage("Die Zahlung wurde abgebrochen. Der Vertrag ist noch nicht zur Zeichnung freigegeben.");
       return;
     }
-    const sessionId = params.get("session_id");
     if (paymentResult !== "success" || !sessionId) return;
     let cancelled = false;
-    void fetch(`/api/contracts/${contract.id}/signature-payment/confirm`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId }),
-    }).then(async (response) => {
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Die Zahlung konnte nicht bestätigt werden.");
-      if (cancelled) return;
-      params.delete("signature_payment"); params.delete("contract_id"); params.delete("session_id");
-      window.history.replaceState(null, "", `${window.location.pathname}${params.size ? `?${params}` : ""}`);
-      window.location.reload();
-    }).catch((error) => { if (!cancelled) setMessage(error instanceof Error ? error.message : "Die Zahlung konnte nicht bestätigt werden."); });
+    setActiveTab("Vertrag");
+    window.sessionStorage.setItem(`sponso:event-sponsor-tab:${eventId}:${contract.id}`, "Vertrag");
+    void (async () => {
+      let lastError: Error | null = null;
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        try {
+          const response = await fetch(`/api/contracts/${contract.id}/signature-payment/confirm`, {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId }),
+          });
+          const result = await response.json();
+          if (response.ok) {
+            if (cancelled) return;
+            params.delete("signature_payment"); params.delete("contract_id"); params.delete("session_id");
+            params.set("sponsor_tab", "Vertrag");
+            window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
+            window.location.reload();
+            return;
+          }
+          lastError = new Error(result.error ?? "Die Zahlung konnte nicht bestätigt werden.");
+          if (response.status !== 409 && response.status !== 503) break;
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error("Die Zahlung konnte nicht bestätigt werden.");
+        }
+        if (attempt < 7) await new Promise((resolve) => window.setTimeout(resolve, Math.min(1000 + attempt * 750, 5000)));
+        if (cancelled) return;
+      }
+      if (!cancelled) setMessage(lastError?.message ?? "Die Zahlung konnte nicht bestätigt werden. Bitte lade die Seite in einigen Sekunden neu.");
+    })();
     return () => { cancelled = true; };
-  }, [contract.id]);
+  }, [contract.id, eventId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -875,16 +951,41 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
   }
 
   async function startContractSignaturePayment(signingDocumentId: string) {
+    if (!stripePublishableKey) throw new Error("Der Stripe-Schlüssel fehlt. Hinterlege NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY in Vercel und veröffentliche die Änderung erneut.");
+    setSigningBusy(true);
+    setCheckoutLoading(true);
+    setCheckoutError("");
+    setCheckoutClientSecret("");
+    setCheckoutOpen(true);
+    try {
     const response = await fetch(`/api/contracts/${contract.id}/signature-payment`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ returnTo: `${window.location.pathname}${window.location.search}`, signingDocumentId }),
+      body: JSON.stringify({ returnTo: `${window.location.pathname}${window.location.search}${window.location.search ? "&" : "?"}sponsor_tab=Vertrag`, signingDocumentId }),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error ?? "Der Bezahlvorgang konnte nicht gestartet werden.");
     if (result.alreadyPaid) { window.location.reload(); return; }
-    if (typeof result.url !== "string") throw new Error("Der Bezahlvorgang konnte nicht geöffnet werden.");
-    window.location.assign(result.url);
+    if (typeof result.clientSecret === "string" && result.clientSecret) {
+      setCheckoutClientSecret(result.clientSecret);
+      return;
+    }
+    if (typeof result.url === "string") { window.location.assign(result.url); return; }
+    throw new Error("Der Bezahlvorgang konnte nicht geöffnet werden.");
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : "Der Bezahlvorgang konnte nicht gestartet werden.");
+      setCheckoutLoading(false);
+      setSigningBusy(false);
+      throw error;
+    }
+  }
+
+  function closeSignatureCheckout() {
+    setCheckoutOpen(false);
+    setCheckoutClientSecret("");
+    setCheckoutError("");
+    setCheckoutLoading(false);
+    setSigningBusy(false);
   }
 
   async function revokeSponsorSigning() {
@@ -1140,8 +1241,8 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
       {signatureAddonEnabled && contractWorkflowMode === "create" && <section className="panel contract-signature-preparation">
         <div className="table-head"><div><h2>Digitale Unterschrift</h2><p className="subtitle">Sponsor, dann Veranstalter.</p></div><span className={`status ${contract.signatureStatus === "signed" ? "status-done" : contract.signatureStatus === "pending_sponsor" || contract.signatureStatus === "pending_organizer" ? "status-progress" : "status-open"}`}>{contract.signatureStatus === "signed" ? "Abgeschlossen" : contract.signatureStatus === "pending_organizer" ? "Veranstalter zeichnet" : contract.signatureStatus === "pending_sponsor" ? "Sponsor zeichnet" : "Nicht gestartet"}</span></div>
         {contract.signatureStatus === "pending_organizer" && <div className="contract-sponsor-signed-notice" role="status"><b>Der Sponsor hat unterschrieben.</b><span>Du kannst den Vertrag jetzt gegenzeichnen.</span></div>}
-        <div className="signature-steps">{signerStep(sponsorSigned, contract.signatureStatus === "pending_sponsor", "1. Sponsor", contract.sponsorSignedAt)}{signerStep(organizerSigned, contract.signatureStatus === "pending_organizer", "2. Veranstalter", contract.organizerSignedAt, contract.signatureStatus === "pending_organizer" && <button className="btn btn-primary signature-step-action" type="button" disabled={signingBusy} onClick={() => { void signAsOrganizer(); }}>{signingBusy ? "Wird gespeichert …" : "Bei Firma unterschreiben"}</button>)}</div>
-        <p className="contract-signature-note">{signedContractFile ? "Der gezeichnete Vertrag wurde hochgeladen. Eine weitere digitale Unterschrift ist nicht möglich." : signingDocumentId ? "Die Zahlung ist erfolgt. Der Sponsor kann nach der Freigabe unterschreiben." : paidSigningDocumentId ? "Gebühr bezahlt. Aktiviere bei der PDF die Checkbox, um sie zur Zeichnung freizugeben." : contractDocuments.some((document) => document.kind === "generated_pdf" || document.kind === "uploaded_pdf") ? "Bezahle zuerst die Gebühr neben der gewünschten PDF. Danach kannst du sie zur Zeichnung freigeben." : "Erstelle zuerst eine Vertrags-PDF, um den Zeichnungsablauf zu starten."}{!signedContractFile && " Die Unterschriften werden über Firma eingeholt und automatisch in Splow aktualisiert."}</p>
+        <div className="signature-steps">{signerStep(sponsorSigned, contract.signatureStatus === "pending_sponsor", "1. Sponsor", contract.sponsorSignedAt)}{signerStep(organizerSigned, contract.signatureStatus === "pending_organizer", "2. Veranstalter", contract.organizerSignedAt, contract.signatureStatus === "pending_organizer" && <button className="btn btn-primary signature-step-action" type="button" disabled={signingBusy} onClick={() => { void signAsOrganizer(); }}>{signingBusy ? "Wird geöffnet …" : "Bei Firma unterschreiben"}</button>)}</div>
+        <p className="contract-signature-note">{signedContractFile ? "Der gezeichnete Vertrag wurde hochgeladen. Eine weitere digitale Unterschrift ist nicht möglich." : signingDocumentId ? "Die Zahlung ist erfolgt. Der Sponsor kann nach der Freigabe bei Firma unterschreiben." : paidSigningDocumentId ? "Gebühr bezahlt. Aktiviere bei der PDF die Checkbox, um sie zur Zeichnung freizugeben." : contractDocuments.some((document) => document.kind === "generated_pdf" || document.kind === "uploaded_pdf") ? "Bezahle zuerst die Gebühr neben der gewünschten PDF. Danach kannst du sie zur Zeichnung freigeben." : "Erstelle zuerst eine Vertrags-PDF, um den Zeichnungsablauf zu starten."}{!signedContractFile && " Die Unterschriften werden über Firma eingeholt und automatisch in Splow aktualisiert."}</p>
       </section>}
     </div>}
     {activeTab === "Leistungen" && <div className="panel table-panel sponsor-contract-benefits"><div className="table-head"><div><h2>Vereinbarte Leistungen</h2><p className="subtitle" style={{ fontSize: 11, marginTop: 4 }}>Einzelleistungen und Nachweisstatus für diesen Eventvertrag.</p></div><button className="btn btn-primary" type="button" onClick={() => { setMessage(""); openAddBenefits(); }}><Icon name="plus" size={14}/> Leistung hinzufügen</button></div><div className="sponsor-benefit-filters" role="group" aria-label="Leistungen nach Art filtern">{([{ value: "all", label: "Alle" }, { value: "monetary", label: "Geldleistungen" }, { value: "in_kind", label: "Sachleistungen" }] as const).map((filter) => <button key={filter.value} className={`filter-chip${benefitTypeFilter === filter.value ? " active" : ""}`} type="button" aria-pressed={benefitTypeFilter === filter.value} onClick={() => setBenefitTypeFilter(filter.value)}>{filter.label}</button>)}</div>{benefitTypeFilter === "in_kind" && <p className="sponsor-in-kind-origin-note">Die Sachleistungen ergeben sich aus den Leistungen, die im Reiter „Leistungen“ ausgewählt wurden. Sachleistungen werden zur besseren Nachvollziehbarkeit hier gesondert ausgegeben.</p>}{filteredBenefits.length ? <div className="sponsor-benefit-cards">{filteredBenefits.map((benefit) => {
@@ -1165,6 +1266,15 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
     {activeTab === "Rechnung" && <EventSponsorInvoice eventId={eventId} sponsorId={sponsor.id} sponsorName={sponsor.name} mode="organizer" />}
     {activeTab === "Dokumente" && <div className="event-sponsor-documents"><SponsorDocumentArea eventId={eventId} sponsorId={sponsor.id} sponsorName={sponsor.name}/>{signedContractFile && <section className="panel signed-contract-file"><div><b>{signedContractFile.fileName}</b><span>Gezeichnete Fassung · hochgeladen am {new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(signedContractFile.createdAt))}</span></div><button className="btn" type="button" onClick={() => { void downloadSignedContractFile(); }}><Icon name="file" size={14}/> Herunterladen</button></section>}</div>}
     {message && <p className={`task-feedback${activeTab === "Vertrag" ? " sponsor-contract-feedback" : ""}`} role="status">{message}</p>}
+    {checkoutOpen && <>
+      <Script src="https://js.stripe.com/v3/" strategy="afterInteractive" onReady={() => setStripeScriptReady(true)}/>
+      <Modal labelledBy="signature-checkout-title" className="create-modal signature-checkout-modal" backdropClassName="modal-backdrop" role="dialog" busy={checkoutLoading} onClose={closeSignatureCheckout}>
+        <div className="create-modal-head"><div><h2 id="signature-checkout-title">Vertragszeichnung freischalten</h2><p>Die Zahlung wird sicher über Stripe abgewickelt. Du bleibst in Splow angemeldet.</p></div><button className="icon-button" type="button" aria-label="Bezahlung schließen" disabled={checkoutLoading} onClick={closeSignatureCheckout}><Icon name="close" size={16}/></button></div>
+        {checkoutError && <p className="field-message error" role="alert">{checkoutError}</p>}
+        {checkoutLoading && <p className="task-empty" role="status">Sichere Bezahlung wird geladen …</p>}
+        <div className="signature-checkout-embed" ref={embeddedCheckoutRef}/>
+      </Modal>
+    </>}
     {editingBenefit && <Modal labelledBy="edit-benefit-tasks-title" className="create-modal add-benefit-modal" backdropClassName="modal-backdrop" role="dialog" busy={Boolean(savingBenefitId)} onClose={() => setEditingBenefit(null)}><div className="create-modal-head"><div><h2 id="edit-benefit-tasks-title">{editingBenefit.benefitType === "in_kind" ? "Sachleistung bearbeiten" : "Leistung bearbeiten"}</h2><p>Ändere Anzahl, Fälligkeit und zuständige Person für „{editingBenefit.title}“.</p></div><button className="icon-button" type="button" aria-label="Dialog schließen" disabled={Boolean(savingBenefitId)} onClick={() => setEditingBenefit(null)}><Icon name="close" size={16}/></button></div><label className="settings-field benefit-edit-quantity"><span>Anzahl</span><input type="number" min="1" step="1" value={editingBenefitQuantity} disabled={Boolean(savingBenefitId)} onChange={(event) => setEditingBenefitQuantity(event.target.value)}/><small>Erledigte Einheiten und vorhandene Nachweise bleiben für die Historie gespeichert, zählen bei geringerer Anzahl aber nicht mehr mit.</small></label><div className="add-benefit-options">{editingTasks.length ? editingTasks.map((task) => {
       const value = taskEditValues[task.id] ?? { dueAt: task.due_at ?? "", assigneeId: task.assigned_to_sponsor ? SPONSOR_ASSIGNEE : task.assigned_to ?? "" };
       const isNeedDate = (editingBenefit.benefitType === "in_kind" || Boolean(editingBenefit.materialLogistics?.trim())) && task.completion_type !== "sponsor_approval" && !editingTasks.some((other) => other.workflow_instance === task.workflow_instance && other.completion_type !== "sponsor_approval" && (other.workflow_order ?? 0) < (task.workflow_order ?? 0));
@@ -1235,7 +1345,7 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
           {contractTemplate && <p className="contract-output-note">Die PDF-Datei wird aus der Vorlage erstellt und direkt heruntergeladen.</p>}
         </>}
       </Modal>}
-    {firmaSigningContractId && <FirmaSigningModal contractId={firmaSigningContractId} onClose={() => { setFirmaSigningContractId(""); window.location.reload(); }} onCompleted={() => { window.dispatchEvent(new Event("sponso:event-timeline-updated")); }}/>} 
+    {firmaSigningContractId && <FirmaSigningModal contractId={firmaSigningContractId} onClose={() => { setFirmaSigningContractId(""); window.location.reload(); }} onCompleted={() => { window.dispatchEvent(new Event("sponso:event-timeline-updated")); }}/>}
     <div ref={printPreviewRef} className={`contract-print-preview ${printReady ? "active" : ""}`} aria-hidden={!printReady}/>
   </section>;
 }

@@ -37,9 +37,6 @@ export async function POST(request: Request, context: Context) {
   });
   if (error || typeof eventId !== "string") {
     const message = error?.message ?? "Event konnte nicht dupliziert werden.";
-    if (message.includes("FREE_EVENT_LIMIT_REACHED")) {
-      return NextResponse.json({ error: "Dein Tarif erlaubt kein weiteres kostenloses Event. Schalte ein bestehendes Event frei oder wähle einen passenden Tarif." }, { status: 409 });
-    }
     if (message.includes("EVENT_ACCESS_DENIED")) return NextResponse.json({ error: "Du hast keinen Zugriff auf dieses Event." }, { status: 403 });
     return NextResponse.json({ error: "Das Event konnte nicht vollständig dupliziert werden. Bitte versuche es erneut." }, { status: 500 });
   }
