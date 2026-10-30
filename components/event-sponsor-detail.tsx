@@ -289,8 +289,9 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("contract_id") !== contract.id) return;
     const paymentResult = params.get("signature_payment");
+    const sessionId = params.get("session_id");
+    if (params.get("contract_id") !== contract.id && !(paymentResult === "success" && sessionId)) return;
     if (paymentResult === "cancelled") {
       setSigningBusy(false);
       params.delete("signature_payment"); params.delete("contract_id"); params.delete("session_id");
@@ -298,7 +299,6 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
       setMessage("Die Zahlung wurde abgebrochen. Der Vertrag ist noch nicht zur Zeichnung freigegeben.");
       return;
     }
-    const sessionId = params.get("session_id");
     if (paymentResult !== "success" || !sessionId) return;
     let cancelled = false;
     setActiveTab("Vertrag");
