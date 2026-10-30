@@ -97,7 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     document.title = `${title} | Splow`;
   }, [path]);
 
-  if (path.startsWith("/login") || path === "/admin/login" || path === "/onboarding" || path === "/partner" || path === "/sponsor" || path.startsWith("/sponsor/")) return <>{children}</>;
+  if (path.startsWith("/login") || path === "/admin/login" || path === "/passwort-zuruecksetzen" || path === "/onboarding" || path === "/partner" || path === "/sponsor" || path.startsWith("/sponsor/")) return <>{children}</>;
   if (["/", "/demo", "/agb", "/impressum", "/datenschutz", "/kontakt", "/landing"].includes(path)) return <>{children}</>;
   const isMobileMode = path === "/event-modus";
   if (isMobileMode) return <>{children}</>;
