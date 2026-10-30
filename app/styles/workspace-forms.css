@@ -30,6 +30,12 @@
 }
 .modal-backdrop { position:fixed; inset:0; z-index:60; display:grid; place-items:center; padding:18px; background:#142a3a75; }
 .create-modal { width:min(100%, 520px); max-height:min(90vh, 720px); overflow:auto; padding:22px; border:1px solid #e8ecef; border-radius:14px; background:#fff; box-shadow:0 20px 60px #152f4330; }
+.firma-signing-modal { width:min(100%, 1120px); height:min(92vh, 920px); max-height:92vh; display:flex; flex-direction:column; gap:12px; }
+.firma-signing-modal > header { display:flex; flex:none; align-items:flex-start; justify-content:space-between; gap:16px; }
+.firma-signing-modal h2 { margin:0; color:#263545; font-size:18px; }
+.firma-signing-modal header p,.firma-signing-modal > p { margin:6px 0 0; color:#87919c; font-size:12px; line-height:1.5; }
+.firma-signing-modal iframe { width:100%; min-height:0; flex:1; border:1px solid #e8ecef; border-radius:10px; background:#fff; }
+@media (max-width:700px) { .firma-signing-modal { width:100%; height:92dvh; max-height:92dvh; padding:14px; } .firma-signing-modal > header .btn { min-height:36px; padding:0 9px; } }
 .block-create-modal { width:min(100%, 820px); max-height:min(92vh, 900px); padding:24px; }
 .block-create-modal .create-modal-head { margin-bottom:16px; }
 .block-editor-form { display:grid; gap:15px; }
