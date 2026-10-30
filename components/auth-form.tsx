@@ -136,9 +136,24 @@ export function AuthForm({ initialMode = "login", invitation = false, accountTyp
       },
     });
     if (error) {
-      setMessage(accountType === "organizer" && registrationIntent === "join"
-        ? "Das Konto konnte nicht mit dem Veranstalterbereich verknüpft werden. Der Beitrittscode könnte inzwischen abgelaufen sein. Bitte lass dir einen neuen Code geben und versuche es erneut."
-        : "Das Konto konnte nicht erstellt werden. Prüfe die Angaben oder versuche es später erneut.");
+      const signupError = error as { code?: string; message?: string; status?: number };
+      const errorCode = signupError.code?.toLocaleLowerCase("en-US") ?? "";
+      const errorText = signupError.message?.toLocaleLowerCase("en-US") ?? "";
+      const emailNotAuthorized = errorCode === "email_address_not_authorized" || errorText.includes("email address not authorized");
+      const emailRateLimited = errorCode === "over_email_send_rate_limit" || errorText.includes("email rate limit exceeded") || signupError.status === 429;
+      const redirectNotAllowed = errorCode.includes("redirect") || errorText.includes("redirect_to") || errorText.includes("redirect url") || errorText.includes("redirect uri");
+      const emailDeliveryFailed = errorText.includes("confirmation email") || errorText.includes("smtp");
+      setMessage(emailNotAuthorized
+        ? "Supabase erlaubt den Testversand an diese Adresse nicht. Füge sie im Demo-Supabase-Projekt als Organisationsmitglied hinzu oder richte dort SMTP ein."
+        : emailRateLimited
+          ? "Das E-Mail-Limit des Supabase-Testversands ist erreicht. Warte eine Stunde oder richte für das Demo-Projekt SMTP ein."
+          : redirectNotAllowed
+            ? "Die Rücksprungadresse ist in Supabase Auth nicht freigegeben. Ergänze https://test.splow.de/** unter Authentication → URL Configuration im Demo-Projekt."
+            : emailDeliveryFailed
+              ? "Supabase konnte die Bestätigungsmail nicht versenden. Prüfe Authentication → Logs und die SMTP-Einstellungen im Demo-Projekt."
+              : accountType === "organizer" && registrationIntent === "join"
+                ? "Das Konto konnte nicht mit dem Veranstalterbereich verknüpft werden. Der Beitrittscode könnte inzwischen abgelaufen sein. Bitte lass dir einen neuen Code geben und versuche es erneut."
+                : "Das Konto konnte nicht erstellt werden. Prüfe die Angaben oder versuche es später erneut.");
     } else if (data.session) {
       if (accountType === "sponsor") {
         const { error: accountError } = await supabase.rpc("create_sponsor_account", { account_name: sponsorAccountName });
