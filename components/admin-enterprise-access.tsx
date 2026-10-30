@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePicker } from "@/components/date-picker";
+
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Icon } from "@/components/ui";
 
@@ -126,7 +128,7 @@ export function AdminEnterpriseAccess() {
             <small className="task-caption">Name und Splow-ID sind sichtbar und durchsuchbar.</small>
           </div>
           <label className="settings-field"><span>Jahresgebühr (€)</span><input required type="number" min="0.01" step="0.01" inputMode="decimal" value={annualFee} onChange={(event) => setAnnualFee(event.target.value)} placeholder="Betrag laut Rechnung" /></label>
-          <label className="settings-field"><span>Gültig bis</span><input required type="date" min={new Date().toISOString().slice(0, 10)} value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label>
+          <label className="settings-field"><span>Gültig bis</span><DatePicker required min={new Date().toISOString().slice(0, 10)} value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label>
           <label className="settings-field"><span>Rechnungsnummer (optional)</span><input maxLength={120} value={invoiceReference} onChange={(event) => setInvoiceReference(event.target.value)} placeholder="z. B. RE-2026-1042" /></label>
           <label className="settings-field settings-field-full"><span>Interne Notiz (optional)</span><input maxLength={500} value={internalNote} onChange={(event) => setInternalNote(event.target.value)} placeholder="Interne Zuordnung oder Vereinbarung" /></label>
         </div>
