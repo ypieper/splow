@@ -37,7 +37,27 @@ export async function GET(_request: Request, context: Context) {
     const { data: paidPayment, error: paymentError } = await admin.from("contract_signature_payments")
       .select("signing_document_id").eq("contract_id", id).eq("payment_status", "paid").limit(1).maybeSingle();
     if (paymentError) throw paymentError;
-    return NextResponse.json({ amountCents: price.amount_cents, currency: price.currency, paidSigningDocumentId: paidPayment?.signing_document_id ?? null }, { headers: { "Cache-Control": "no-store" } });
+    let paidSigningDocumentId = paidPayment?.signing_document_id ?? null;
+    if (!paidSigningDocumentId) {
+      const { data: pendingPayment, error: pendingError } = await admin.from("contract_signature_payments")
+        .select("signing_document_id, stripe_checkout_session_id")
+        .eq("contract_id", id).eq("payment_status", "pending").not("stripe_checkout_session_id", "is", null)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (pendingError) throw pendingError;
+      if (pendingPayment?.stripe_checkout_session_id) {
+        let session: Awaited<ReturnType<typeof getStripeCheckoutSession>> | null = null;
+        try {
+          session = await getStripeCheckoutSession(pendingPayment.stripe_checkout_session_id);
+        } catch {
+          // The regular page can still render while Stripe or the webhook is temporarily unavailable.
+        }
+        if (session?.payment_status === "paid" && session.metadata?.contract_id === id) {
+          await recordVerifiedContractSignaturePayment(session);
+          paidSigningDocumentId = pendingPayment.signing_document_id;
+        }
+      }
+    }
+    return NextResponse.json({ amountCents: price.amount_cents, currency: price.currency, paidSigningDocumentId }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Der Preis für die Vertragszeichnung konnte nicht geladen werden." }, { status: 503 });
   }
