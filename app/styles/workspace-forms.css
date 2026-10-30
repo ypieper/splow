@@ -36,8 +36,6 @@
 .firma-signing-modal header p,.firma-signing-modal > p { margin:6px 0 0; color:#87919c; font-size:12px; line-height:1.5; }
 .firma-signing-modal iframe { width:100%; min-height:0; flex:1; border:1px solid #e8ecef; border-radius:10px; background:#fff; }
 @media (max-width:700px) { .firma-signing-modal { width:100%; height:92dvh; max-height:92dvh; padding:14px; } .firma-signing-modal > header .btn { min-height:36px; padding:0 9px; } }
-.signature-checkout-modal { width:min(100%, 540px); max-height:min(94vh, 820px); }
-.signature-checkout-embed { min-height:440px; }
 .entitlement-checkout-section > p { margin:0 0 14px; color:var(--muted); }
 .entitlement-checkout-embed { min-height:440px; }
 .block-create-modal { width:min(100%, 820px); max-height:min(92vh, 900px); padding:24px; }
@@ -263,7 +261,6 @@
 .sponsor-contract-workspace .contract-document-card { gap:8px 10px; padding:10px; }
 .sponsor-contract-workspace .contract-document-actions { gap:6px; }
 .sponsor-contract-workspace .contract-document-actions .btn { min-height:32px; padding:0 9px; font-size:9px; }
-.sponsor-contract-workspace .contract-document-payment-button { white-space:nowrap; }
 .sponsor-contract-workspace .signed-contract-sponsor-visibility { margin-top:0; padding:9px 10px; }
 .sponsor-contract-workspace .signed-contract-sponsor-visibility:has(input:disabled) { cursor:not-allowed; opacity:.78; }
 .sponsor-contract-workspace .signed-contract-sponsor-visibility b { font-size:10px; }
@@ -274,7 +271,6 @@
 .sponsor-contract-workspace .signature-step small { font-size:9px; }
 .sponsor-contract-workspace .contract-signature-note { margin-top:9px; font-size:9px; }
 .sponsor-contract-workspace .contract-sponsor-signed-notice { margin-bottom:8px; padding:9px 10px; }
-.sponsor-contract-workspace .contract-document-paid-status { white-space:nowrap; }
 .sponsor-event-detail .sponsor-contract-files { margin:0 0 16px; }
 .sponsor-event-detail .sponsor-contract-files .table-head { padding:0 0 14px; }
 .contract-workflow-choice { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:16px; }

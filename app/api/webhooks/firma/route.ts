@@ -94,11 +94,6 @@ export async function POST(request: Request) {
       .eq("signing_provider", "firma").eq("signing_request_id", requestId).maybeSingle();
     if (contractError) throw contractError;
     if (!contract || contract.signature_status === "draft") return NextResponse.json({ received: true });
-    const { data: paidPayment, error: paymentError } = await admin.from("contract_signature_payments")
-      .select("id").eq("contract_id", contract.id).eq("payment_status", "paid").limit(1).maybeSingle();
-    if (paymentError) throw paymentError;
-    if (!paidPayment) return NextResponse.json({ received: true });
-
     let recipients = event.data?.recipients ?? [];
     if (event.type === "signing_request.recipient.signed" && event.data?.recipient) recipients = [...recipients, event.data.recipient];
     if (event.type === "signing_request.completed" && recipients.length === 0) {

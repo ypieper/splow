@@ -114,10 +114,6 @@ export async function POST(_request: Request, context: Context) {
     }
 
     if (!contract.signing_document_id) return NextResponse.json({ error: "Für diesen Vertrag ist keine PDF freigegeben." }, { status: 409 });
-    const { data: signaturePayment, error: signaturePaymentError } = await admin.from("contract_signature_payments")
-      .select("id").eq("contract_id", contract.id).eq("payment_status", "paid").limit(1).maybeSingle();
-    if (signaturePaymentError) throw signaturePaymentError;
-    if (!signaturePayment) return NextResponse.json({ error: "Die Vertragszeichnung wird erst nach bestätigter Zahlung freigegeben." }, { status: 402 });
     if (signatureStatus !== "signed") {
       const { error: signatureError } = await admin.rpc("record_contract_signature", {
         target_contract_id: contract.id,

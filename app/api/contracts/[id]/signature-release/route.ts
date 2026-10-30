@@ -38,16 +38,14 @@ export async function POST(request: Request, context: Context) {
     if (contract.signature_status !== "draft") return NextResponse.json({ error: "Der Zeichnungsablauf wurde bereits gestartet." }, { status: 409 });
 
     const signingDocumentId = clean(payload.signingDocumentId);
-    const [{ data: enabled, error: entitlementError }, { data: document, error: documentError }, { data: payment, error: paymentError }] = await Promise.all([
+    const [{ data: enabled, error: entitlementError }, { data: document, error: documentError }] = await Promise.all([
       admin.rpc("event_signature_addon_enabled", { target_event_id: contract.event_id }),
       admin.from("contract_documents").select("id, storage_path, file_name, content_type").eq("id", signingDocumentId).eq("contract_id", contractId)
         .in("kind", ["generated_pdf", "uploaded_pdf"]).maybeSingle(),
-      admin.from("contract_signature_payments").select("id").eq("contract_id", contractId).eq("signing_document_id", signingDocumentId).eq("payment_status", "paid").maybeSingle(),
     ]);
-    if (entitlementError || documentError || paymentError) throw entitlementError ?? documentError ?? paymentError;
+    if (entitlementError || documentError) throw entitlementError ?? documentError;
     if (!enabled) return NextResponse.json({ error: "Für dieses Event ist noch kein Vertragspaket freigeschaltet." }, { status: 403 });
     if (!document) return NextResponse.json({ error: "Die gewählte Vertrags-PDF wurde nicht gefunden." }, { status: 404 });
-    if (!payment) return NextResponse.json({ error: "Bezahle zuerst die Gebühr für diese PDF." }, { status: 402 });
 
     const [{ data: event, error: eventError }, { data: sponsor, error: sponsorError }] = await Promise.all([
       admin.from("events").select("title, organization_id, contact_first_name, contact_last_name, contact_email").eq("id", contract.event_id).maybeSingle(),
