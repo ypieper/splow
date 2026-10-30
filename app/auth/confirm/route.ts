@@ -3,8 +3,29 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
+  const tokenHash = request.nextUrl.searchParams.get("token_hash");
   const next = request.nextUrl.searchParams.get("next");
   const destination = next?.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+  const flow = request.nextUrl.searchParams.get("flow");
+  const authType = request.nextUrl.searchParams.get("type");
+  const isRecovery = flow === "recovery" || authType === "recovery" || destination.split("?")[0] === "/passwort-zuruecksetzen";
+
+  if (isRecovery) {
+    if (!code && !tokenHash) {
+      return NextResponse.redirect(new URL("/passwort-zuruecksetzen?link=invalid", request.url));
+    }
+    const proof = code ? `c.${encodeURIComponent(code)}` : `t.${encodeURIComponent(tokenHash!)}`;
+    const response = NextResponse.redirect(new URL("/passwort-zuruecksetzen", request.url));
+    response.cookies.set("splow-password-recovery", proof, {
+      httpOnly: true,
+      secure: request.nextUrl.protocol === "https:",
+      sameSite: "strict",
+      path: "/api/auth/password-reset",
+      maxAge: 10 * 60,
+    });
+    return response;
+  }
+
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
