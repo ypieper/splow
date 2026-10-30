@@ -450,6 +450,9 @@
 .event-overview-title h3 { margin:0; }
 .entitlement-backdrop { z-index:100100; }
 .entitlement-modal { width:min(760px,100%); }
+.entitlement-modal-checkout { width:min(560px,100%); max-height:min(94vh,860px); }
+.entitlement-checkout-section > p { margin:0 0 14px; color:var(--muted); }
+.entitlement-checkout-embed { min-height:440px; }
 .entitlement-plan-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:18px 0; }
 .entitlement-package-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:18px 0 12px; }
 .entitlement-package-card { display:grid; align-content:start; gap:7px; min-width:0; padding:14px; border:1px solid #e3e9ee; border-radius:12px; background:#fff; color:#536575; text-align:left; cursor:pointer; }

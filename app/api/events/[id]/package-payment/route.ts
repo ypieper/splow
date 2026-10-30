@@ -70,21 +70,20 @@ export async function POST(request: Request, context: Context) {
 
     const baseUrl = publicBaseUrl(request);
     const returnPath = `/events/${eventId}?tab=sponsoren`;
-    const success = new URL(returnPath, baseUrl);
-    success.searchParams.set("package_payment", "success");
-    success.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
-    const cancel = new URL(returnPath, baseUrl);
-    cancel.searchParams.set("package_payment", "cancelled");
+    const returnUrl = new URL(returnPath, baseUrl);
+    returnUrl.searchParams.set("package_payment", "success");
+    returnUrl.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
 
     const form = new URLSearchParams();
     form.set("mode", "payment");
+    form.set("ui_mode", "embedded_page");
+    form.set("redirect_on_completion", "if_required");
     form.set("line_items[0][price_data][currency]", "eur");
     form.set("line_items[0][price_data][unit_amount]", String(packageRow.base_amount_cents));
     form.set("line_items[0][price_data][product_data][name]", `Splow ${packageRow.name}`);
     form.set("line_items[0][price_data][product_data][description]", `Einmaliges Paket für dieses Event, bis zu ${packageRow.max_contracts} Sponsoren`);
     form.set("line_items[0][quantity]", "1");
-    form.set("success_url", success.toString().replace(/%7BCHECKOUT_SESSION_ID%7D/i, "{CHECKOUT_SESSION_ID}"));
-    form.set("cancel_url", cancel.toString());
+    form.set("return_url", returnUrl.toString().replace(/%7BCHECKOUT_SESSION_ID%7D/i, "{CHECKOUT_SESSION_ID}"));
     form.set("client_reference_id", eventId);
     form.set("metadata[checkout_type]", "event_package");
     form.set("metadata[event_id]", eventId);
@@ -93,8 +92,8 @@ export async function POST(request: Request, context: Context) {
     if (user.email) form.set("customer_email", user.email);
 
     const session = await createStripeCheckoutSession(form, `event-package-${eventId}-${randomUUID()}`);
-    if (!session.id || !session.url) throw new Error("Stripe did not return a Checkout URL");
-    return NextResponse.json({ url: session.url, amountCents: packageRow.base_amount_cents }, { headers: { "Cache-Control": "no-store" } });
+    if (!session.id || !session.client_secret) throw new Error("Stripe did not return an embedded Checkout client secret");
+    return NextResponse.json({ clientSecret: session.client_secret, sessionId: session.id, amountCents: packageRow.base_amount_cents }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof Error && error.message === "STRIPE_SECRET_KEY is not configured") {
       return NextResponse.json({ error: "Stripe ist noch nicht konfiguriert. Bitte hinterlege STRIPE_SECRET_KEY in Vercel." }, { status: 503 });

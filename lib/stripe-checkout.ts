@@ -8,6 +8,7 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
 
 export type StripeCheckoutSession = {
   id: string;
+  client_secret?: string | null;
   url: string | null;
   status: "open" | "complete" | "expired" | null;
   payment_status: "paid" | "unpaid" | "no_payment_required";
