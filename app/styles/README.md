@@ -16,6 +16,8 @@ when changing styles; feature rules still rely on it.
 - `task-workflows.css`, `workflow-builder.css`: fulfillment and workflow editing.
 - `badges-and-lists.css`, `adaptive-tables.css`, `compact-layouts.css`: shared
   list patterns and compact layouts.
+- `liquid-glass.css`: translucent treatment for sticky navigation and floating
+  controls; imported last so the effect stays scoped to those surfaces.
 
 Edit the file that owns the affected rule. Prefer shared controls and existing
 variables over adding another global override. The initial extraction preserves
