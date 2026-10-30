@@ -23,8 +23,18 @@ export function SponsorTaskUpload({ taskId, busy, disabled, onUpload, onBrandKit
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Das Brand-Kit konnte nicht geladen werden."); }
     finally { setLoading(false); }
   }
+  const selectedFile = files.find((file) => file.id === selected);
   return <div className="sponsor-task-upload-options"><div><label className="btn btn-primary sponsor-task-upload-button"><Icon name="file" size={14}/>{busy ? "Wird hochgeladen …" : "Datei hochladen"}<input type="file" accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" hidden disabled={disabled || busy} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) onUpload(file); }}/></label><button className="btn" type="button" disabled={disabled || busy} onClick={() => void showBrandKit()}>Aus Brand-Kit auswählen</button></div>
-    {open && <div className="sponsor-task-brand-kit-picker" aria-label="Datei aus Brand-Kit auswählen">{loading ? <small>Brand-Kit wird geladen …</small> : error ? <small className="field-message error">{error}</small> : files.length ? <><div className="sponsor-task-brand-kit-options">{files.map((file) => <button className={selected === file.id ? "selected" : ""} type="button" key={file.id} disabled={busy} onClick={() => setSelected(file.id)}><Icon name="file" size={14}/><span>{file.label}</span><small>{file.file_name}</small></button>)}</div>{selected && <div className="sponsor-task-brand-kit-preview">{files.find((file) => file.id === selected)?.url && <a href={files.find((file) => file.id === selected)?.url ?? undefined} target="_blank" rel="noreferrer">Datei vorab ansehen</a>}<button className="btn btn-primary" type="button" disabled={busy} onClick={() => { const chosen = files.find((file) => file.id === selected); if (chosen && window.confirm(`„${chosen.label}“ als Nachweis für diese Aufgabe einreichen?`)) onBrandKitSelect(chosen.id); }}>{busy ? "Wird eingereicht …" : "Auswahl bestätigen und einreichen"}</button></div>}</> : <small>Im Brand-Kit sind noch keine Dateien vorhanden. Du kannst zuerst eine Datei direkt hochladen.</small>}</div>}
+    {open && <div className="sponsor-task-brand-kit-picker" role="group" aria-label="Datei aus Brand-Kit auswählen">
+      {loading ? <small>Brand-Kit wird geladen …</small> : error ? <small className="field-message error">{error}</small> : files.length ? <>
+        <label className="sponsor-task-brand-kit-select"><span>Bezeichnung der Datei</span><select value={selected} disabled={busy} onChange={(event) => setSelected(event.target.value)}><option value="">Bezeichnung wählen …</option>{files.map((file) => <option key={file.id} value={file.id}>{file.label}</option>)}</select></label>
+        {selectedFile && <div className="sponsor-task-brand-kit-preview">
+          <small>Dateiname: {selectedFile.file_name}</small>
+          {selectedFile.url && <a href={selectedFile.url} target="_blank" rel="noreferrer">Datei vorab ansehen</a>}
+          <button className="btn btn-primary" type="button" disabled={busy} onClick={() => { if (window.confirm(`„${selectedFile.label}“ als Nachweis für diese Aufgabe einreichen?`)) onBrandKitSelect(selectedFile.id); }}>{busy ? "Wird eingereicht …" : "Auswahl bestätigen und einreichen"}</button>
+        </div>}
+      </> : <small>Im Brand-Kit sind noch keine Dateien vorhanden. Du kannst zuerst eine Datei direkt hochladen.</small>}
+    </div>}
   </div>;
 }
 
