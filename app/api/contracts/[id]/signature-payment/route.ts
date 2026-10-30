@@ -12,10 +12,7 @@ type Context = { params: Promise<{ id: string }> };
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 function publicBaseUrl(request: Request) {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL;
-  if (configured) return configured.replace(/\/$/, "");
-  const deployment = process.env.VERCEL_URL;
-  if (deployment) return `https://${deployment}`;
+  // Return Stripe Checkout to the same host from which the organizer started.
   return new URL(request.url).origin;
 }
 
