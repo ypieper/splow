@@ -305,7 +305,7 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
     window.sessionStorage.setItem(`sponso:event-sponsor-tab:${eventId}:${contract.id}`, "Vertrag");
     void (async () => {
       let lastError: Error | null = null;
-      for (let attempt = 0; attempt < 8; attempt += 1) {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
         try {
           const response = await fetch(`/api/contracts/${contract.id}/signature-payment/confirm`, {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId }),
@@ -319,23 +319,36 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
             window.location.reload();
             return;
           }
-          if (response.status === 409 && String(result.error ?? "").includes("noch nicht bestätigt")) {
-            if (cancelled) return;
-            params.delete("signature_payment"); params.delete("contract_id"); params.delete("session_id");
-            params.set("sponsor_tab", "Vertrag");
-            window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
-            setMessage("Die Zahlung wurde nicht abgeschlossen. Du kannst sie jederzeit erneut starten.");
-            return;
-          }
           lastError = new Error(result.error ?? "Die Zahlung konnte nicht bestätigt werden.");
           if (response.status !== 409 && response.status !== 503) break;
         } catch (error) {
           lastError = error instanceof Error ? error : new Error("Die Zahlung konnte nicht bestätigt werden.");
         }
-        if (attempt < 7) await new Promise((resolve) => window.setTimeout(resolve, Math.min(1000 + attempt * 750, 5000)));
+
+        // The browser can return before Stripe has updated the session. The status
+        // endpoint also reconciles paid sessions, so check it before retrying.
+        try {
+          const statusResponse = await fetch(`/api/contracts/${contract.id}/signature-payment`, { cache: "no-store" });
+          const status = statusResponse.ok ? await statusResponse.json() as { paidSigningDocumentId?: string | null } : null;
+          if (typeof status?.paidSigningDocumentId === "string" && status.paidSigningDocumentId) {
+            if (cancelled) return;
+            setPaidSigningDocumentId(status.paidSigningDocumentId);
+            params.delete("signature_payment"); params.delete("contract_id"); params.delete("session_id");
+            params.set("sponsor_tab", "Vertrag");
+            window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
+            window.location.reload();
+            return;
+          }
+        } catch {
+          // Keep retrying the server-side confirmation.
+        }
         if (cancelled) return;
+        if (attempt < 19) await new Promise((resolve) => window.setTimeout(resolve, Math.min(1500 + attempt * 500, 5000)));
       }
-      if (!cancelled) setMessage(lastError?.message ?? "Die Zahlung konnte nicht bestätigt werden. Bitte lade die Seite in einigen Sekunden neu.");
+      if (!cancelled) {
+        setSigningBusy(false);
+        setMessage(lastError?.message ?? "Die Zahlung wird noch verarbeitet. Bitte lade die Seite in einigen Sekunden neu.");
+      }
     })();
     return () => { cancelled = true; };
   }, [contract.id, eventId]);
