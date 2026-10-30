@@ -2,12 +2,9 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui";
-import { createClient } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
-  const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [message, setMessage] = useState("");
@@ -28,11 +25,16 @@ export default function ResetPasswordPage() {
 
     setBusy(true);
     try {
-      const { error } = await createClient().auth.updateUser({ password });
-      if (error) throw error;
+      const response = await fetch("/api/auth/password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Der Reset-Link ist ungültig oder abgelaufen.");
       setUpdated(true);
-    } catch {
-      setMessage("Das Passwort konnte nicht geändert werden. Bitte fordere einen neuen Reset-Link an.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Das Passwort konnte nicht geändert werden. Bitte fordere einen neuen Reset-Link an.");
     } finally {
       setBusy(false);
     }
@@ -43,8 +45,8 @@ export default function ResetPasswordPage() {
       <span className="settings-section-icon"><Icon name="settings" size={17}/></span>
       {updated ? <>
         <h1>Passwort geändert</h1>
-        <p>Dein neues Passwort ist gespeichert. Du kannst Splow jetzt öffnen.</p>
-        <button className="btn btn-primary" type="button" onClick={() => router.replace("/dashboard")}>Weiter zu Splow</button>
+        <p>Dein neues Passwort ist gespeichert. Melde dich jetzt damit an.</p>
+        <Link className="btn btn-primary" href="/login">Zur Anmeldung</Link>
       </> : <>
         <h1>Neues Passwort festlegen</h1>
         <p>Wähle ein neues Passwort für dein Konto.</p>
