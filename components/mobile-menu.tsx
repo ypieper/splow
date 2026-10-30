@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import { Icon, SplowLogo } from "@/components/ui";
 
 export const navigation = [
-  { label: "Übersicht", href: "/dashboard", icon: "grid" },
+  { label: "Dashboard", href: "/dashboard", icon: "grid" },
   { label: "Events", href: "/events", icon: "calendar" },
   { label: "Sponsoren", href: "/sponsors", icon: "users" },
   { label: "Aufgaben", href: "/aufgaben", icon: "check" },
@@ -88,7 +88,7 @@ export function MobileMenu({ isPlatformAdmin = false, isSalesPartner = false }: 
       <div className="mobile-menu-backdrop" aria-hidden="true" onClick={() => { setOpen(false); toggleRef.current?.focus(); }}/>
       <div className="mobile-drawer" id="mobile-primary-navigation">
         <div className="mobile-drawer-head">
-          <Link href={isPlatformAdmin ? "/admin/users" : "/dashboard"} className="brand" aria-label={isPlatformAdmin ? "Splow Administration" : "Splow Übersicht öffnen"}><SplowLogo /></Link>
+          <Link href={isPlatformAdmin ? "/admin/users" : "/dashboard"} className="brand" aria-label={isPlatformAdmin ? "Splow Administration" : "Splow Dashboard öffnen"}><SplowLogo /></Link>
           <button ref={closeRef} className="icon-button" type="button" aria-label="Menü schließen" onClick={() => { setOpen(false); toggleRef.current?.focus(); }}><Icon name="close" size={17}/></button>
         </div>
         <div className="nav-label">{isPlatformAdmin ? "Plattform" : "Veranstalterbereich"}</div>
