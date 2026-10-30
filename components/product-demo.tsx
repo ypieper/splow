@@ -11,7 +11,7 @@ type DemoView = "overview" | "sponsors" | "benefits" | "work" | "report";
 type DemoRole = "organizer" | "sponsor" | "eventMode";
 
 const organizerViews: Array<{ id: DemoView; label: string }> = [
-  { id: "overview", label: "Übersicht" },
+  { id: "overview", label: "Dashboard" },
   { id: "sponsors", label: "Sponsoren" },
   { id: "benefits", label: "Leistungen" },
   { id: "work", label: "Aufgaben & Nachweise" },
