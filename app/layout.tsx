@@ -8,6 +8,7 @@ const appEnvironment = process.env.NEXT_PUBLIC_APP_ENV?.toLowerCase();
 const isTestEnvironment =
   process.env.NODE_ENV !== "production" ||
   process.env.VERCEL_ENV === "preview" ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("nwlapyarlpaztpdouyxm") === true ||
   appEnvironment === "test" ||
   appEnvironment === "demo";
 
