@@ -35,10 +35,13 @@ export function SplowLogo({ markSize = 32 }: { markSize?: number }) {
     <span className="brand-mark" style={{ width: markSize, height: markSize }} aria-hidden="true">
       <svg width="30" height="30" viewBox="0 0 64 64" fill="none">
         <g strokeLinecap="round" strokeLinejoin="round">
-          <path d="M27 28c-3-8-11-10-14-6-3 4 1 10 10 12M37 28c3-8 11-10 14-6 3 4-1 10-10 12" stroke="#F9C7B9" strokeWidth="4.5" />
-          <path d="M28 25c-2-5-5-8-9-9M36 25c2-5 5-8 9-9" stroke="white" strokeWidth="3.5" />
-          <path d="M32 25c-7 0-11 5-11 13 0 9 5 16 11 19 6-3 11-10 11-19 0-8-4-13-11-13Z" fill="white" />
-          <path d="M22 35c5 3 17 3 20 0M23.5 42c4 3 13 3 17 0" stroke="#192D40" strokeWidth="4" />
+          <path d="M29 29c-4-9-2-16 4-17 7-1 10 6 6 16M38 28c2-9 8-12 13-8 5 4 1 10-6 14" fill="#FFF0C9" stroke="white" strokeWidth="1.7" />
+          <path d="M34 32c-5-6-15-6-21 0-6 6-4 14 3 17 7 3 17-1 21-9Z" fill="#FFD977" />
+          <circle cx="36" cy="34" r="7" fill="#FFD977" />
+          <circle cx="46" cy="29" r="5.5" fill="#192D40" />
+          <path d="M16 32c3 2 6 3 10 2M11 39c4 3 9 4 15 2M15 46c4 2 8 2 12 0" stroke="#192D40" strokeWidth="3.6" />
+          <path d="m13 38-6 1.5 5 3.5M21 47l-2 5M29 45l1 6M36 39l4 8M44 24c-2-4-2-6-.5-8M49 24c2-3 4-4 5-5" stroke="#192D40" strokeWidth="2.4" />
+          <circle cx="47.5" cy="28" r=".8" fill="white" stroke="none" />
         </g>
       </svg>
     </span>
