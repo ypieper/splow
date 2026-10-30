@@ -61,7 +61,7 @@ export function AuthForm({ initialMode = "login", invitation = false, accountTyp
     const supabase = createClient();
 
     if (mode === "recovery") {
-      const redirectTo = `${window.location.origin}/auth/confirm?next=${encodeURIComponent("/passwort-zuruecksetzen")}`;
+      const redirectTo = `${window.location.origin}/auth/confirm?flow=recovery&next=${encodeURIComponent("/passwort-zuruecksetzen")}`;
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
       setMessage(error
         ? "Die E-Mail konnte nicht angefordert werden. Bitte versuche es später erneut."
