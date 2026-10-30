@@ -44,6 +44,15 @@ export async function GET(_request: Request, context: Context) {
   }
 }
 
+function safePaymentError(error: unknown) {
+  const value = error instanceof Error ? error.message : String(error);
+  return value
+    .replace(/\b(?:sk|pk|rk)_(?:test|live)_[A-Za-z0-9]+\b/g, "[REDACTED_STRIPE_KEY]")
+    .replace(/\bwhsec_[A-Za-z0-9]+\b/g, "[REDACTED_WEBHOOK_SECRET]")
+    .replace(/\bBearer\s+\S+/gi, "Bearer [REDACTED]")
+    .slice(0, 500);
+}
+
 export async function POST(request: Request, context: Context) {
   const { id } = await context.params;
   if (!isUuid(id)) return NextResponse.json({ error: "Ungültiger Vertrag." }, { status: 400 });
@@ -51,6 +60,7 @@ export async function POST(request: Request, context: Context) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return NextResponse.json({ error: "Bitte melde dich erneut an." }, { status: 401 });
 
+  let failureStage = "load-contract";
   try {
     const admin = createAdminClient();
     const { data: contract, error: contractError } = await admin.from("contracts")
@@ -63,6 +73,7 @@ export async function POST(request: Request, context: Context) {
     if (!(["draft", "pending_sponsor", "pending_organizer"].includes(contract.signature_status)) || (contract.signature_status !== "draft" && !contract.signing_document_id)) {
       return NextResponse.json({ error: "Der Vertrag ist nicht zur Zahlung bereit." }, { status: 409 });
     }
+    failureStage = "check-event-entitlement";
     const { data: enabled, error: entitlementError } = await admin.rpc("event_signature_addon_enabled", { target_event_id: contract.event_id });
     if (entitlementError) throw entitlementError;
     if (!enabled) return NextResponse.json({ error: "Für dieses Event ist noch kein Vertragspaket freigeschaltet." }, { status: 403 });
@@ -71,6 +82,7 @@ export async function POST(request: Request, context: Context) {
     if (typeof payload.signingDocumentId !== "string" || !isUuid(payload.signingDocumentId)) {
       return NextResponse.json({ error: "Bitte wähle zuerst eine Vertrags-PDF aus." }, { status: 400 });
     }
+    failureStage = "validate-signing-document";
     const { data: signingDocument, error: signingDocumentError } = await admin.from("contract_documents")
       .select("id").eq("id", payload.signingDocumentId).eq("contract_id", id)
       .in("kind", ["generated_pdf", "uploaded_pdf"]).maybeSingle();
@@ -79,6 +91,7 @@ export async function POST(request: Request, context: Context) {
     const returnTo = typeof payload.returnTo === "string" && payload.returnTo.startsWith("/") && !payload.returnTo.startsWith("//")
       ? payload.returnTo
       : "/dashboard";
+    failureStage = "reserve-payment";
     const { data: reservationData, error: reservationError } = await admin.rpc("reserve_contract_signature_payment", {
       target_contract_id: id,
       target_signing_document_id: payload.signingDocumentId,
@@ -96,6 +109,7 @@ export async function POST(request: Request, context: Context) {
     let sessionId = reservation.stripe_checkout_session_id as string | null;
     let checkoutUrl = reservation.stripe_checkout_url as string | null;
     if (sessionId) {
+      failureStage = "retrieve-existing-checkout";
       const existing = await getStripeCheckoutSession(sessionId);
       if (existing.status === "complete" && existing.payment_status === "paid") {
         await recordVerifiedContractSignaturePayment(existing);
@@ -160,8 +174,10 @@ export async function POST(request: Request, context: Context) {
       form.set("metadata[payment_id]", reservation.payment_id);
       form.set("metadata[event_id]", contract.event_id);
       if (user.email) form.set("customer_email", user.email);
+      failureStage = "create-checkout-session";
       const created = await createStripeCheckoutSession(form, `contract-signature-${reservation.payment_id}`);
       if (!created.id || !created.url) throw new Error("Stripe did not return a Checkout URL");
+      failureStage = "save-checkout-session";
       const { error: saveError } = await admin.rpc("save_contract_signature_checkout", {
         target_payment_id: reservation.payment_id,
         target_checkout_session_id: created.id,
@@ -176,6 +192,14 @@ export async function POST(request: Request, context: Context) {
     if (error instanceof Error && error.message === "STRIPE_SECRET_KEY is not configured") {
       return NextResponse.json({ error: "Stripe ist noch nicht konfiguriert. Bitte hinterlege STRIPE_SECRET_KEY in Vercel." }, { status: 503 });
     }
+    const err = error as { name?: unknown; code?: unknown; status?: unknown };
+    console.error("[contracts/signature-payment] Checkout start failed", {
+      stage: failureStage,
+      name: typeof err?.name === "string" ? err.name : "UnknownError",
+      code: typeof err?.code === "string" ? err.code : undefined,
+      status: typeof err?.status === "number" ? err.status : undefined,
+      message: safePaymentError(error),
+    });
     return NextResponse.json({ error: "Der Bezahlvorgang konnte nicht gestartet werden. Bitte versuche es erneut." }, { status: 500 });
   }
 }
