@@ -227,7 +227,7 @@ export function DatePicker({ value, onChange, min, max, required, disabled, clas
     <button className="date-picker-trigger" type="button" aria-label="Kalender öffnen" aria-expanded={open} disabled={disabled} onPointerDown={(event) => event.preventDefault()} onClick={() => open ? setOpen(false) : openCalendar()}>
       <Icon name="calendar" size={17}/>
     </button>
-    {open && position && createPortal(<div className="date-picker-popover" id={calendarId} role="dialog" aria-label="Datum auswählen" ref={popoverRef} style={{ top: position.top, left: position.left }}>
+    {open && position ? createPortal(<div className="date-picker-popover" id={calendarId} role="dialog" aria-label="Datum auswählen" ref={popoverRef} style={{ top: position.top, left: position.left }}>
       <div className="date-picker-popover-header">
         <strong>{monthLabel}</strong>
         <div className="date-picker-month-controls">
