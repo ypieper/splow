@@ -49,7 +49,7 @@ export async function POST(_request: Request, context: Context) {
     if (contractError || !contract) return NextResponse.json({ error: "Der Vertrag wurde nicht gefunden." }, { status: 404 });
     const { data: signatureEnabled, error: entitlementError } = await admin.rpc("event_signature_addon_enabled", { target_event_id: contract.event_id });
     if (entitlementError) throw entitlementError;
-    if (signatureEnabled !== true) return NextResponse.json({ error: "Für dieses Event ist kein Signatur-Add-on gebucht." }, { status: 403 });
+    if (signatureEnabled !== true) return NextResponse.json({ error: "Für dieses Event ist noch kein Vertragspaket freigeschaltet." }, { status: 403 });
     const signatureStatus = contract.signed_at ? "signed" : contract.signature_status;
 
     let signerRole: "sponsor" | "organizer";
@@ -74,6 +74,10 @@ export async function POST(_request: Request, context: Context) {
     }
 
     if (!contract.signing_document_id) return NextResponse.json({ error: "Für diesen Vertrag ist keine PDF freigegeben." }, { status: 409 });
+    const { data: signaturePayment, error: signaturePaymentError } = await admin.from("contract_signature_payments")
+      .select("id").eq("contract_id", contract.id).eq("payment_status", "paid").limit(1).maybeSingle();
+    if (signaturePaymentError) throw signaturePaymentError;
+    if (!signaturePayment) return NextResponse.json({ error: "Die Vertragszeichnung wird erst nach bestätigter Zahlung freigegeben." }, { status: 402 });
     if (signatureStatus !== "signed") {
       const { error: signatureError } = await admin.rpc("record_contract_signature", {
         target_contract_id: contract.id,

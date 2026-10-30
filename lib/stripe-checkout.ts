@@ -1,0 +1,80 @@
+import "server-only";
+
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+const stripeApi = "https://api.stripe.com/v1";
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
+
+export type StripeCheckoutSession = {
+  id: string;
+  url: string | null;
+  status: "open" | "complete" | "expired" | null;
+  payment_status: "paid" | "unpaid" | "no_payment_required";
+  payment_intent: string | { id: string } | null;
+  amount_total: number | null;
+  currency: string | null;
+  mode: string;
+  metadata: Record<string, string>;
+};
+
+export async function stripeApiRequest<T>(path: string, init: RequestInit = {}) {
+  if (!stripeSecretKey) throw new Error("STRIPE_SECRET_KEY is not configured");
+  const response = await fetch(`${stripeApi}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${stripeSecretKey}`,
+      ...(init.body ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
+      ...init.headers,
+    },
+    cache: "no-store",
+  });
+  const result = await response.json() as T & { error?: { message?: string } };
+  if (!response.ok) throw new Error(result.error?.message ?? "Stripe request failed");
+  return result;
+}
+
+export function createStripeCheckoutSession(body: URLSearchParams, idempotencyKey: string) {
+  return stripeApiRequest<StripeCheckoutSession>("/checkout/sessions", {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body,
+  });
+}
+
+export function getStripeCheckoutSession(sessionId: string) {
+  return stripeApiRequest<StripeCheckoutSession>(`/checkout/sessions/${encodeURIComponent(sessionId)}`);
+}
+
+export async function recordVerifiedContractSignaturePayment(session: StripeCheckoutSession) {
+  if (session.mode !== "payment" || session.payment_status !== "paid" || !session.amount_total || !session.currency) {
+    throw new Error("Stripe payment is not complete");
+  }
+  const contractId = session.metadata?.contract_id;
+  const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+  if (!contractId || !paymentIntentId) throw new Error("Stripe payment metadata is incomplete");
+
+  const admin = createAdminClient();
+  const { error } = await admin.rpc("record_contract_signature_payment", {
+    target_checkout_session_id: session.id,
+    target_payment_intent_id: paymentIntentId,
+    target_paid_amount_cents: session.amount_total,
+    target_currency: session.currency,
+  });
+  if (error) throw error;
+  return contractId;
+}
+
+export function verifyStripeWebhookSignature(payload: string, header: string, secret: string) {
+  const parts = header.split(",").map((part) => part.split("=", 2));
+  const timestamp = parts.find(([key]) => key === "t")?.[1];
+  const signatures = parts.filter(([key]) => key === "v1").map(([, value]) => value).filter(Boolean);
+  if (!timestamp || !signatures.length || !/^\d+$/.test(timestamp)) return false;
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false;
+  const expected = createHmac("sha256", secret).update(`${timestamp}.${payload}`, "utf8").digest();
+  return signatures.some((signature) => {
+    if (!/^[0-9a-f]{64}$/i.test(signature)) return false;
+    const received = Buffer.from(signature, "hex");
+    return received.length === expected.length && timingSafeEqual(received, expected);
+  });
+}

@@ -37,9 +37,9 @@ const story = [
 ];
 
 const eventPackages = [
-  { name: "Starter", sponsorLimit: "Bis zu 10 Sponsoren", price: "99 €", signaturePrice: "+40 €", signatures: "10 Vertragsunterschriften inklusive" },
-  { name: "Plus", sponsorLimit: "Bis zu 20 Sponsoren", price: "179 €", signaturePrice: "+80 €", signatures: "20 Vertragsunterschriften inklusive" },
-  { name: "Pro", sponsorLimit: "Bis zu 30 Sponsoren", price: "239 €", signaturePrice: "+120 €", signatures: "30 Vertragsunterschriften inklusive", featured: true },
+  { name: "Starter", sponsorLimit: "Bis zu 10 Sponsoren", price: "99 €", signaturePrice: "4 €", signatures: "je Vertragsunterschrift" },
+  { name: "Plus", sponsorLimit: "Bis zu 20 Sponsoren", price: "179 €", signaturePrice: "4 €", signatures: "je Vertragsunterschrift" },
+  { name: "Pro", sponsorLimit: "Bis zu 30 Sponsoren", price: "239 €", signaturePrice: "4 €", signatures: "je Vertragsunterschrift", featured: true },
 ];
 
 const eventPackageFeatures = [
@@ -177,11 +177,11 @@ export default function LandingPage() {
             <strong className="landing-pricing-price">{item.price}</strong>
             <span className="landing-pricing-period">einmalig pro Event</span>
             <ul className="landing-pricing-features">{eventPackageFeatures.map((feature) => <li key={feature}>{feature}</li>)}</ul>
-            <span className="landing-pricing-signature"><span><small>OPTIONAL</small>Rechtssichere Vertragsunterschrift<small className="landing-pricing-signature-count">{item.signatures}</small></span><strong>{item.signaturePrice}</strong></span>
+            <span className="landing-pricing-signature"><span><small>VOR DER FREIGABE</small>Digitale Vertragszeichnung<small className="landing-pricing-signature-count">{item.signatures}</small></span><strong>{item.signaturePrice}</strong></span>
             <Link className={`btn${item.featured ? " btn-primary" : ""}`} href="/login?type=organizer&mode=signup">Event starten <span aria-hidden="true">→</span></Link>
           </article>)}
         </div>
-        <p className="landing-pricing-note">Alle drei Pakete enthalten die Kernfunktionen. Die digitale Signatur ist optional; der Paketaufpreis steht jeweils in der Kachel.</p>
+        <p className="landing-pricing-note">Alle drei Pakete enthalten die Kernfunktionen. Digitale Vertragszeichnungen werden einzeln vor der Freigabe bezahlt.</p>
         <aside className="landing-enterprise-card">
           <div className="landing-enterprise-heading"><span>INDIVIDUELL</span><h3>Enterprise</h3><p>Für Veranstalter mit mehreren Events oder besonderen Anforderungen.</p></div>
           <ul><li>Mehrere Events in einem Veranstalterbereich</li><li>Individuelle Anzahl an Sponsoren und Verträgen</li><li>Alle Kernfunktionen enthalten</li></ul>
