@@ -20,9 +20,9 @@ export async function POST(request: Request, context: Context) {
     if (!isUuid(contractId) && typeof payload.contractId === "string" && isUuid(payload.contractId)) {
       contractId = payload.contractId;
     }
-    if (!isUuid(contractId) && typeof signingDocumentId === "string" && isUuid(signingDocumentId)) {
+    if (!isUuid(contractId) && typeof payload.signingDocumentId === "string" && isUuid(payload.signingDocumentId)) {
       const { data: selectedDocument, error: selectedDocumentError } = await admin.from("contract_documents")
-        .select("contract_id").eq("id", signingDocumentId).maybeSingle();
+        .select("contract_id").eq("id", payload.signingDocumentId).maybeSingle();
       if (selectedDocumentError) throw selectedDocumentError;
       contractId = selectedDocument?.contract_id ?? "";
     }
@@ -38,8 +38,8 @@ export async function POST(request: Request, context: Context) {
     if (!ownsEvent) return NextResponse.json({ error: "Du hast keinen Zugriff auf diesen Vertrag." }, { status: 403 });
     if (contract.signature_status !== "draft") return NextResponse.json({ error: "Der Zeichnungsablauf wurde bereits gestartet." }, { status: 409 });
 
-    let signingDocumentId = typeof signingDocumentId === "string" && isUuid(signingDocumentId)
-      ? signingDocumentId
+    let signingDocumentId = typeof payload.signingDocumentId === "string" && isUuid(payload.signingDocumentId)
+      ? payload.signingDocumentId
       : "";
     if (!signingDocumentId) {
       const { data: paidPayment, error: paidPaymentError } = await admin.from("contract_signature_payments")
