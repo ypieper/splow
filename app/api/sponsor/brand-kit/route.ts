@@ -14,29 +14,47 @@ async function getAccounts() {
 }
 
 export async function GET(request: Request) {
-  const auth = await getAccounts();
-  if (!auth.user || !auth.admin) return NextResponse.json({ error: auth.status === 401 ? "Bitte melde dich erneut an." : "Das Brand-Kit konnte nicht geladen werden." }, { status: auth.status });
-  let permittedAccountIds = auth.accountIds;
   const taskId = new URL(request.url).searchParams.get("taskId");
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return NextResponse.json({ error: "Bitte melde dich erneut an." }, { status: 401 });
+  const admin = createAdminClient();
+  let task: { event_id: string; sponsor_id: string } | null = null;
   if (taskId) {
-    const { data: task, error: taskError } = await auth.admin.from("tasks").select("event_id, sponsor_id").eq("id", taskId).maybeSingle();
+    const { data, error: taskError } = await admin.from("tasks").select("event_id, sponsor_id").eq("id", taskId).maybeSingle();
     if (taskError) return NextResponse.json({ error: "Die Aufgabe konnte nicht geprüft werden." }, { status: 500 });
-    if (!task?.event_id || !task.sponsor_id) return NextResponse.json({ error: "Die Aufgabe wurde nicht gefunden." }, { status: 404 });
-    const { data: assignments, error: assignmentError } = await auth.admin.from("sponsor_event_accounts").select("account_id").eq("event_id", task.event_id).eq("sponsor_id", task.sponsor_id).in("account_id", auth.accountIds);
-    if (assignmentError) return NextResponse.json({ error: "Deine Event-Zuordnung konnte nicht geprüft werden." }, { status: 500 });
-    permittedAccountIds = (assignments ?? []).map((assignment) => assignment.account_id);
+    if (!data?.event_id || !data.sponsor_id) return NextResponse.json({ error: "Die Aufgabe wurde nicht gefunden." }, { status: 404 });
+    task = data;
   }
-  if (!permittedAccountIds.length) return NextResponse.json({ files: [] }, { headers: { "Cache-Control": "no-store" } });
-  const [{ data, error }, { data: accounts }] = await Promise.all([
-    auth.admin.from("sponsor_brand_kit_files").select("id, account_id, file_name, label, content_type, size_bytes, created_at, storage_path").in("account_id", permittedAccountIds).order("created_at", { ascending: false }),
-    auth.admin.from("sponsor_accounts").select("id, name").in("id", auth.accountIds).order("created_at", { ascending: true }),
+  const fileColumns = "id, account_id, file_name, label, content_type, size_bytes, created_at, storage_path";
+  const accountRelations = taskId
+    ? "sponsor_accounts!inner(sponsor_account_members!inner(user_id), sponsor_event_accounts!inner(event_id, sponsor_id))"
+    : "sponsor_accounts!inner(sponsor_account_members!inner(user_id))";
+  let filesQuery = admin.from("sponsor_brand_kit_files")
+    .select(`${fileColumns}, ${accountRelations}`)
+    .eq("sponsor_accounts.sponsor_account_members.user_id", user.id)
+    .order("created_at", { ascending: false });
+  if (task) {
+    filesQuery = filesQuery
+      .eq("sponsor_accounts.sponsor_event_accounts.event_id", task.event_id)
+      .eq("sponsor_accounts.sponsor_event_accounts.sponsor_id", task.sponsor_id);
+  }
+  const accountsQuery = taskId
+    ? Promise.resolve({ data: [] as Array<{ id: string; name: string }>, error: null })
+    : admin.from("sponsor_accounts").select("id, name, sponsor_account_members!inner(user_id)").eq("sponsor_account_members.user_id", user.id).order("created_at", { ascending: true });
+  const [{ data, error }, { data: accountRows, error: accountsError }] = await Promise.all([
+    filesQuery,
+    accountsQuery,
   ]);
-  if (error) return NextResponse.json({ error: "Das Brand-Kit konnte nicht geladen werden." }, { status: 500 });
-  const files = await Promise.all((data ?? []).map(async ({ storage_path, ...file }) => {
-    const { data: signed } = await auth.admin!.storage.from(sponsorUploadBucket).createSignedUrl(storage_path, 3600);
-    return { ...file, url: signed?.signedUrl ?? null };
-  }));
-  return NextResponse.json({ files, accounts: accounts ?? [] }, { headers: { "Cache-Control": "no-store" } });
+  if (error || accountsError) return NextResponse.json({ error: "Das Brand-Kit konnte nicht geladen werden." }, { status: 500 });
+  const filesData = (data ?? []).map(({ sponsor_accounts: _account, ...file }) => file);
+  const { data: signedUrls } = filesData.length
+    ? await admin.storage.from(sponsorUploadBucket).createSignedUrls(filesData.map((file) => file.storage_path), 3600)
+    : { data: [] };
+  const urlByPath = new Map((signedUrls ?? []).map((item) => [item.path, item.signedUrl]));
+  const files = filesData.map(({ storage_path, ...file }) => ({ ...file, url: urlByPath.get(storage_path) ?? null }));
+  const accounts = (accountRows ?? []).map(({ id, name }) => ({ id, name }));
+  return NextResponse.json({ files, accounts }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {
