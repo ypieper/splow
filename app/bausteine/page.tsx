@@ -323,7 +323,7 @@ export default function LibraryPage() {
   }
 
   return <main className="content">
-    <PageHeading eyebrow="VORLAGEN" title="Vertragsbausteine" subtitle="Wiederverwendbare Leistungen für deine Sponsoringverträge." action={<button className="btn btn-primary" type="button" onClick={() => { setMessage(""); setEditingBlockId(null); setDraft(emptyDraft); setIconPickerOpen(false); setShowCreate(true); }}><Icon name="plus" size={16}/> Baustein erstellen</button>}/>
+    <PageHeading eyebrow="VORLAGEN" title="Leistungsbausteine" subtitle="Wiederverwendbare Leistungen für deine Sponsoringverträge." action={<button className="btn btn-primary" type="button" onClick={() => { setMessage(""); setEditingBlockId(null); setDraft(emptyDraft); setIconPickerOpen(false); setShowCreate(true); }}><Icon name="plus" size={16}/> Baustein erstellen</button>}/>
     <p className="subtitle library-message" role="status" aria-live="polite">{message || (ready ? "Deine Bausteine werden sicher in deinem Konto gespeichert." : "Bausteine werden geladen …")}</p>
     <div className="library-filter" aria-label="Bausteine filtern"><button type="button" onClick={() => setCategory("Alle Bausteine")} aria-pressed={category === "Alle Bausteine"} className={`filter-chip ${category === "Alle Bausteine" ? "active" : ""}`}>Alle Bausteine</button>{categories.map((item) => <span className={`category-filter-chip ${category === item ? "active" : ""}`} key={item}><button type="button" onClick={() => setCategory(item)} aria-pressed={category === item} className="filter-chip">{item}</button>{!defaultCategories.includes(item) && <button type="button" className="category-remove-button" aria-label={`Kategorie ${item} entfernen`} title={`Kategorie ${item} entfernen`} onClick={() => { if (items.some((block) => block.category === item)) { setCategoryToDelete(item); setMoveToCategory(categories.find((other) => other !== item) ?? "Werbung"); } else removeCategory(item); }}>Entfernen</button>}</span>)}<button className="btn" type="button" onClick={() => { setShowCategoryForm((value) => !value); setMessage(""); }}><Icon name="plus" size={13}/> Kategorie hinzufügen</button></div>
     {showCategoryForm && <form className="category-create-form" onSubmit={createCategory}><label className="settings-field"><span>Neue Kategorie</span><input autoFocus required maxLength={35} value={newCategory} onChange={(event) => setNewCategory(event.target.value)} placeholder="z. B. Printwerbung" /></label><button className="btn btn-primary" type="submit">Hinzufügen</button><button className="btn" type="button" onClick={() => setShowCategoryForm(false)}>Abbrechen</button></form>}
@@ -359,7 +359,7 @@ export default function LibraryPage() {
           </div>
 
           <form className="block-editor-form" onSubmit={saveBlock}>
-            <aside className="library-info" aria-label="Information zu Vertragsbausteinen">
+            <aside className="library-info" aria-label="Information zu Leistungsbausteinen">
               <span className="library-info-icon"><Icon name="layers" size={16}/></span>
               <p>Aus den Angaben hier entstehen später im Event die vereinbarte Leistung und ihre Aufgaben.</p>
             </aside>

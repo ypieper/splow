@@ -11,7 +11,7 @@ export const navigation = [
   { label: "Events", href: "/events", icon: "calendar" },
   { label: "Sponsoren", href: "/sponsors", icon: "users" },
   { label: "Aufgaben", href: "/aufgaben", icon: "check" },
-  { label: "Vertragsbausteine", href: "/bausteine", icon: "layers" },
+  { label: "Leistungsbausteine", href: "/bausteine", icon: "layers" },
   { label: "Einstellungen", href: "/einstellungen", icon: "settings" },
 ];
 

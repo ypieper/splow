@@ -69,7 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       : path === "/events" ? "Events"
       : path.startsWith("/events/") ? "Eventdetails"
       : path === "/aufgaben" ? "Aufgaben"
-      : path === "/bausteine" ? "Vertragsbausteine"
+      : path === "/bausteine" ? "Leistungsbausteine"
       : path === "/sponsors" ? "Sponsoren"
       : path.startsWith("/sponsors/") ? "Sponsorprofil"
       : path.startsWith("/einstellungen") ? "Einstellungen"
