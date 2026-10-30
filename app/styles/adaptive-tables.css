@@ -63,11 +63,6 @@
 .event-reports-data-table th:nth-child(6) { width:28%; }
 .event-reports-data-table .progress-wrap { min-width:100px; }
 .event-reports-data-table .event-report-actions { justify-content:flex-start; }
-.event-report-missing-evidence { margin-top:7px; color:#a34c37; font-size:10px; }
-.event-report-missing-evidence summary { width:max-content; max-width:100%; cursor:pointer; font-weight:700; }
-.event-report-missing-evidence ul { display:grid; gap:4px; margin:6px 0 0; padding-left:16px; color:#687887; line-height:1.45; }
-.event-report-missing-evidence > a { display:inline-flex; margin-top:7px; color:var(--accent-strong); font-weight:700; text-decoration:none; }
-.event-report-missing-evidence > a:hover { text-decoration:underline; }
 .event-benefits-data-table { min-width:860px; table-layout:fixed; }
 .event-benefits-data-table th:first-child { width:36%; }
 .event-benefits-data-table th:nth-child(2) { width:28%; }
