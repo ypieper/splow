@@ -9,6 +9,7 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
 export type StripeCheckoutSession = {
   id: string;
   url: string | null;
+  client_secret: string | null;
   status: "open" | "complete" | "expired" | null;
   payment_status: "paid" | "unpaid" | "no_payment_required";
   payment_intent: string | { id: string } | null;
@@ -44,6 +45,10 @@ export function createStripeCheckoutSession(body: URLSearchParams, idempotencyKe
 
 export function getStripeCheckoutSession(sessionId: string) {
   return stripeApiRequest<StripeCheckoutSession>(`/checkout/sessions/${encodeURIComponent(sessionId)}`);
+}
+
+export function expireStripeCheckoutSession(sessionId: string) {
+  return stripeApiRequest<StripeCheckoutSession>(`/checkout/sessions/${encodeURIComponent(sessionId)}/expire`, { method: "POST" });
 }
 
 export async function recordVerifiedContractSignaturePayment(session: StripeCheckoutSession) {
