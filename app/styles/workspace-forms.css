@@ -226,11 +226,12 @@
 .sponsor-event-detail .sponsor-contract-data .table-head { padding:0 0 14px; }
 .sponsor-event-detail .sponsor-contract-data .sponsor-contract-detail-grid { margin:0; }
 .sponsor-contract-workspace { display:grid; grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr); gap:12px; align-items:stretch; }
-.sponsor-contract-workspace .sponsor-contract-data { grid-column:auto; margin:0!important; padding:13px 16px; }
+.sponsor-contract-workspace .sponsor-contract-data { display:flex; flex-direction:column; grid-column:auto; margin:0!important; padding:13px 16px; }
 .sponsor-contract-workspace .sponsor-contract-data .table-head { align-items:center; margin-bottom:9px; padding:0; }
 .sponsor-contract-workspace .sponsor-contract-data .table-head h2 { margin:0; font-size:14px; }
-.sponsor-contract-workspace .sponsor-contract-data .table-head .btn { min-height:32px; padding:0 12px; font-size:10px; }
 .sponsor-contract-workspace .sponsor-contract-detail-grid { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:end; gap:8px 12px; margin:0; }
+.sponsor-contract-workspace .contract-details-save { justify-content:flex-end; margin-top:auto; padding-top:12px; }
+.sponsor-contract-workspace .contract-details-save .btn { min-height:34px; padding:0 12px; font-size:10px; }
 .sponsor-contract-workspace .contract-volume-field input { max-width:132px; height:32px; }
 .sponsor-contract-workspace .event-contract-date { gap:5px; }
 .sponsor-contract-workspace .event-contract-date small { color:#87919c; font-size:9px; line-height:1.35; }
