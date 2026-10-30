@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -175,7 +176,11 @@ export async function POST(request: Request, context: Context) {
       form.set("metadata[event_id]", contract.event_id);
       if (user.email) form.set("customer_email", user.email);
       failureStage = "create-checkout-session";
-      const created = await createStripeCheckoutSession(form, `contract-signature-${reservation.payment_id}`);
+      const idempotencyHash = createHash("sha256").update(form.toString()).digest("hex");
+      const created = await createStripeCheckoutSession(
+        form,
+        `contract-signature-${reservation.payment_id}-${idempotencyHash}`,
+      );
       if (!created.id || !created.url) throw new Error("Stripe did not return a Checkout URL");
       failureStage = "save-checkout-session";
       const { error: saveError } = await admin.rpc("save_contract_signature_checkout", {
