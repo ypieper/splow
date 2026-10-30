@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
   createStripeCheckoutSession,
+  expireStripeCheckoutSession,
   getStripeCheckoutSession,
   recordVerifiedContractSignaturePayment,
 } from "@/lib/stripe-checkout";
@@ -106,6 +107,7 @@ export async function POST(request: Request, context: Context) {
 
     let sessionId = reservation.stripe_checkout_session_id as string | null;
     let checkoutUrl = reservation.stripe_checkout_url as string | null;
+    let checkoutClientSecret: string | null = null;
     if (sessionId) {
       failureStage = "retrieve-existing-checkout";
       const existing = await getStripeCheckoutSession(sessionId);
@@ -116,7 +118,8 @@ export async function POST(request: Request, context: Context) {
       if (existing.status === "complete") {
         return NextResponse.json({ error: "Die Zahlung wird noch verarbeitet. Bitte warte auf die Bestätigung von Stripe." }, { status: 409 });
       }
-      if (existing.status === "expired") {
+      if (existing.status === "expired" || (existing.status === "open" && !existing.client_secret && Boolean(existing.url))) {
+        if (existing.status === "open") await expireStripeCheckoutSession(sessionId);
         await admin.rpc("expire_contract_signature_payment", { target_checkout_session_id: sessionId });
         const { data: nextData, error: nextError } = await admin.rpc("reserve_contract_signature_payment", {
           target_contract_id: id,
@@ -136,11 +139,11 @@ export async function POST(request: Request, context: Context) {
         reservation.signing_document_id = next.signing_document_id;
         sessionId = next.stripe_checkout_session_id;
         checkoutUrl = next.stripe_checkout_url;
-      } else if (existing.status === "open" && checkoutUrl) {
+      } else if (existing.status === "open" && existing.client_secret) {
         if (reservation.signing_document_id !== payload.signingDocumentId) {
           return NextResponse.json({ error: "Für diesen Vertrag läuft bereits eine Zahlung für eine andere PDF. Bitte schließe oder beende zuerst diesen Bezahlvorgang." }, { status: 409 });
         }
-        return NextResponse.json({ url: checkoutUrl, amountCents: reservation.amount_cents });
+        return NextResponse.json({ clientSecret: existing.client_secret, amountCents: reservation.amount_cents });
       }
     }
 
@@ -154,18 +157,16 @@ export async function POST(request: Request, context: Context) {
       success.searchParams.set("signature_payment", "success");
       success.searchParams.set("contract_id", id);
       success.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
-      const cancel = new URL(returnTo, baseUrl);
-      cancel.searchParams.set("signature_payment", "cancelled");
-      cancel.searchParams.set("contract_id", id);
       const form = new URLSearchParams();
       form.set("mode", "payment");
+      form.set("ui_mode", "embedded_page");
+      form.set("redirect_on_completion", "always");
       form.set("line_items[0][price_data][currency]", "eur");
       form.set("line_items[0][price_data][unit_amount]", String(reservation.amount_cents));
       form.set("line_items[0][price_data][product_data][name]", "Digitale Vertragszeichnung");
       form.set("line_items[0][price_data][product_data][description]", "Einmalige Zahlung vor Freigabe zur digitalen Vertragszeichnung");
       form.set("line_items[0][quantity]", "1");
-      form.set("success_url", success.toString().replace(/%7BCHECKOUT_SESSION_ID%7D/i, "{CHECKOUT_SESSION_ID}"));
-      form.set("cancel_url", cancel.toString());
+      form.set("return_url", success.toString().replace(/%7BCHECKOUT_SESSION_ID%7D/i, "{CHECKOUT_SESSION_ID}"));
       form.set("client_reference_id", id);
       form.set("metadata[contract_id]", id);
       form.set("metadata[payment_id]", reservation.payment_id);
@@ -177,18 +178,19 @@ export async function POST(request: Request, context: Context) {
         form,
         `contract-signature-${reservation.payment_id}-${idempotencyHash}`,
       );
-      if (!created.id || !created.url) throw new Error("Stripe did not return a Checkout URL");
+      if (!created.id || !created.client_secret) throw new Error("Stripe did not return an embedded Checkout client secret");
       failureStage = "save-checkout-session";
       const { error: saveError } = await admin.rpc("save_contract_signature_checkout", {
         target_payment_id: reservation.payment_id,
         target_checkout_session_id: created.id,
-        target_checkout_url: created.url,
+        target_checkout_url: "embedded_checkout",
       });
       if (saveError) throw saveError;
       sessionId = created.id;
-      checkoutUrl = created.url;
+      checkoutUrl = null;
+      checkoutClientSecret = created.client_secret;
     }
-    return NextResponse.json({ url: checkoutUrl, amountCents: reservation.amount_cents });
+    return NextResponse.json({ clientSecret: checkoutClientSecret, amountCents: reservation.amount_cents });
   } catch (error) {
     if (error instanceof Error && error.message === "STRIPE_SECRET_KEY is not configured") {
       return NextResponse.json({ error: "Stripe ist noch nicht konfiguriert. Bitte hinterlege STRIPE_SECRET_KEY in Vercel." }, { status: 503 });
