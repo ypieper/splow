@@ -65,7 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const title = path === "/" ? "Sponsoringmanagement für Veranstalter"
-      : path === "/dashboard" ? "Übersicht"
+      : path === "/dashboard" ? "Dashboard"
       : path === "/events" ? "Events"
       : path.startsWith("/events/") ? "Eventdetails"
       : path === "/aufgaben" ? "Aufgaben"
@@ -101,7 +101,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (["/", "/demo", "/agb", "/impressum", "/datenschutz", "/kontakt", "/landing"].includes(path)) return <>{children}</>;
   const isMobileMode = path === "/event-modus";
   if (isMobileMode) return <>{children}</>;
-  const currentOrganizerPage = navigation.find((item) => path === item.href || path.startsWith(`${item.href}/`))?.label ?? "Übersicht";
+  const currentOrganizerPage = navigation.find((item) => path === item.href || path.startsWith(`${item.href}/`))?.label ?? "Dashboard";
   return <div className={`app-frame${adminNavigationOnly ? "" : " organizer-app-frame"}`}>
     {adminNavigationOnly && <aside className="sidebar">
       <Link href="/admin/users" className="brand" aria-label="Splow Administration"><SplowLogo /></Link>
@@ -114,7 +114,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className={`main-area ${path === "/dashboard" ? "dashboard-main-area" : ""}`}>
       {adminNavigationOnly ? <header className="topbar"><MobileMenu isPlatformAdmin/><div className="crumb">Plattform <span style={{padding:"0 7px",color:"#c1c7ce"}}>/</span> <b>{adminNavigation.find((item) => item.href === path)?.label ?? "Benutzer"}</b></div><div className="top-actions"><LogoutButton/></div></header> : <header className="topbar organizer-topbar">
         <div className="organizer-compact-navigation"><MobileMenu isSalesPartner={isSalesPartner}/><span className="organizer-current-page">{currentOrganizerPage}</span></div>
-        <Link href="/dashboard" className="brand organizer-topbar-brand" aria-label="Splow Übersicht öffnen"><SplowLogo /></Link>
+        <Link href="/dashboard" className="brand organizer-topbar-brand" aria-label="Splow Dashboard öffnen"><SplowLogo /></Link>
         <nav className="organizer-top-navigation" aria-label="Hauptnavigation">{[...navigation, ...(isSalesPartner ? [{ label: "Vertriebspartner", href: "/partner", icon: "spark" }] : [])].map((item) => {
           const route = item.href.split("?")[0];
           const active = path === route || (route !== "/" && path.startsWith(`${route}/`));
