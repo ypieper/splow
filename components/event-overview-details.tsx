@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePicker } from "@/components/date-picker";
+
 import { Modal } from "@/components/modal";
 import { EventLocationFields } from "@/components/event-location-fields";
 import { Icon } from "@/components/ui";
@@ -163,8 +165,8 @@ export function EventOverviewDetails({ eventId, initialDetails, onDetailsSaved }
             <div className="event-edit-section-heading"><h3>Veranstaltung</h3><p>Name, Zeitraum und Ort</p></div>
             <div className="settings-grid">
               <label className="settings-field settings-field-full"><span>Event-Name *</span><input autoFocus autoComplete="off" required maxLength={100} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
-              <label className="settings-field"><span>Beginn</span><input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} required /></label>
-              <label className="settings-field"><span>Ende</span><input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} required /></label>
+              <label className="settings-field"><span>Beginn</span><DatePicker value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} required /></label>
+              <label className="settings-field"><span>Ende</span><DatePicker value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} required /></label>
               <EventLocationFields required value={{ street: draft.locationStreet, postalCode: draft.locationPostalCode, city: draft.locationCity }} onChange={(location) => updateLocation({ ...(location.street !== undefined ? { locationStreet: location.street } : {}), ...(location.postalCode !== undefined ? { locationPostalCode: location.postalCode } : {}), ...(location.city !== undefined ? { locationCity: location.city } : {}) })} />
             </div>
           </section>
