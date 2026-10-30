@@ -65,6 +65,29 @@ export async function recordVerifiedContractSignaturePayment(session: StripeChec
   return contractId;
 }
 
+export async function recordVerifiedEventPackagePayment(session: StripeCheckoutSession, providerEventId: string) {
+  if (session.mode !== "payment" || session.payment_status !== "paid" || !session.amount_total || session.currency !== "eur") {
+    throw new Error("Stripe event package payment is not complete");
+  }
+  const eventId = session.metadata?.event_id;
+  const packageCode = session.metadata?.package_code;
+  if (session.metadata?.checkout_type !== "event_package" || !eventId || !packageCode) {
+    throw new Error("Stripe event package metadata is incomplete");
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin.rpc("record_confirmed_event_package_payment", {
+    target_event_id: eventId,
+    target_package_code: packageCode,
+    target_signature_addon: false,
+    target_paid_amount_cents: session.amount_total,
+    target_payment_reference: session.id,
+    target_provider_event_id: providerEventId,
+  });
+  if (error) throw error;
+  return eventId;
+}
+
 export function verifyStripeWebhookSignature(payload: string, header: string, secret: string) {
   const parts = header.split(",").map((part) => part.split("=", 2));
   const timestamp = parts.find(([key]) => key === "t")?.[1];

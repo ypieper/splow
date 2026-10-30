@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { recordVerifiedContractSignaturePayment, verifyStripeWebhookSignature, type StripeCheckoutSession } from "@/lib/stripe-checkout";
+import { recordVerifiedContractSignaturePayment, recordVerifiedEventPackagePayment, verifyStripeWebhookSignature, type StripeCheckoutSession } from "@/lib/stripe-checkout";
 
 export async function POST(request: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -16,7 +16,13 @@ export async function POST(request: Request) {
     const session = event.data?.object;
     if (!session?.id) return NextResponse.json({ received: true });
     if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
-      if (session.payment_status === "paid") await recordVerifiedContractSignaturePayment(session);
+      if (session.payment_status === "paid") {
+        if (session.metadata?.checkout_type === "event_package") {
+          await recordVerifiedEventPackagePayment(session, event.id);
+        } else {
+          await recordVerifiedContractSignaturePayment(session);
+        }
+      }
     } else if (event.type === "checkout.session.expired") {
       const admin = createAdminClient();
       const { error } = await admin.rpc("expire_contract_signature_payment", { target_checkout_session_id: session.id });

@@ -59,6 +59,7 @@ export function EventEntitlementsProvider({ children }: { children: ReactNode })
   const [code, setCode] = useState("");
   const [selectedPackage, setSelectedPackage] = useState("");
   const [redeeming, setRedeeming] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [dialogMessage, setDialogMessage] = useState("");
   const [dialogError, setDialogError] = useState("");
   const currentEntitlement = dialog ? entries[dialog.eventId]?.data : null;
@@ -170,6 +171,29 @@ export function EventEntitlementsProvider({ children }: { children: ReactNode })
     }
   }
 
+  async function startPackageCheckout() {
+    if (!dialog || !selectedPackageDetails || checkoutLoading) return;
+    setCheckoutLoading(true);
+    setDialogError("");
+    setDialogMessage("");
+    try {
+      const response = await fetch(`/api/events/${dialog.eventId}/package-payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageCode: selectedPackageDetails.code }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Der Bezahlvorgang konnte nicht gestartet werden.");
+      if (typeof result.url !== "string" || !result.url.startsWith("https://checkout.stripe.com/")) {
+        throw new Error("Stripe hat keinen gültigen Bezahl-Link zurückgegeben.");
+      }
+      window.location.assign(result.url);
+    } catch (error) {
+      setDialogError(error instanceof Error ? error.message : "Der Bezahlvorgang konnte nicht gestartet werden.");
+      setCheckoutLoading(false);
+    }
+  }
+
   const value = useMemo<EventEntitlementsContextValue>(() => ({
     getEntitlement,
     getPackageBooking,
@@ -180,8 +204,8 @@ export function EventEntitlementsProvider({ children }: { children: ReactNode })
 
   return <EventEntitlementsContext.Provider value={value}>
     {children}
-    {dialog && <Modal labelledBy="entitlement-title" className="create-modal entitlement-modal" backdropClassName="modal-backdrop entitlement-backdrop" role="dialog" busy={redeeming} onClose={() => setDialog(null)}>
-        <div className="create-modal-head"><div><div className="eyebrow">EVENT FREISCHALTEN</div><h2 id="entitlement-title">Splow für dieses Event freischalten</h2><p>{dialog.title}{dialog.reason ? ` · ${dialog.reason}` : ""}</p></div><button className="icon-button" type="button" aria-label="Dialog schließen" disabled={redeeming} onClick={() => setDialog(null)}><Icon name="close" size={16}/></button></div>
+    {dialog && <Modal labelledBy="entitlement-title" className="create-modal entitlement-modal" backdropClassName="modal-backdrop entitlement-backdrop" role="dialog" busy={redeeming || checkoutLoading} onClose={() => setDialog(null)}>
+        <div className="create-modal-head"><div><div className="eyebrow">EVENT FREISCHALTEN</div><h2 id="entitlement-title">Splow für dieses Event freischalten</h2><p>{dialog.title}{dialog.reason ? ` · ${dialog.reason}` : ""}</p></div><button className="icon-button" type="button" aria-label="Dialog schließen" disabled={redeeming || checkoutLoading} onClick={() => setDialog(null)}><Icon name="close" size={16}/></button></div>
         {currentPackageBooking ? <section className="entitlement-package-current"><div><strong>Paket gebucht: {eventContractPackageLabel(currentPackageBooking.max_contracts, currentPackageBooking.package_code)}</strong><span>{currentPackageBooking.payment_status === "comped" ? "Über Freischaltcode aktiviert" : `Gesamtbetrag ${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(currentPackageBooking.total_amount_cents / 100)}`}</span></div><p>Digitale Vertragszeichnungen werden einzeln vor der Freigabe bezahlt.</p></section> : currentEntitlement?.plan_code === "event" || currentEntitlement?.plan_code === "event_pro" ? <section className="entitlement-package-current"><div><strong>Bestehender Tarif: {eventPlanLabel(currentEntitlement.plan_code)}</strong><span>Für dieses Event wurde bereits ein Tarif freigeschaltet.</span></div><p>Die neuen Vertragspakete gelten für neu gebuchte Events. Digitale Vertragszeichnungen werden separat pro Vertrag bezahlt.</p></section> : <>
           <div className="entitlement-package-grid" role="radiogroup" aria-label="Paket auswählen">{contractPackages.map((item) => {
             const packageName = item.name || eventContractPackageLabel(item.max_contracts, item.code);
@@ -190,11 +214,11 @@ export function EventEntitlementsProvider({ children }: { children: ReactNode })
           <aside className="entitlement-enterprise-plan"><div><strong>Enterprise</strong><span>Für Veranstalter mit mehreren Events</span></div><ul className="entitlement-enterprise-features"><li>Individuelle Anzahl an Sponsoren und Verträgen</li><li>Alle Kernfunktionen enthalten</li><li>Umfang und Preis auf Anfrage</li></ul><Link className="btn btn-primary" href="/kontakt?anliegen=enterprise">Enterprise anfragen</Link></aside>
           {selectedPackageDetails && <div className="entitlement-signature-addon"><span>Digitale Vertragszeichnung</span><strong>Einzelzahlung pro Vertrag</strong><small>Die Zahlung wird vor der Freigabe zur Unterschrift durchgeführt.</small></div>}
           {selectedPackageDetails && <div className="entitlement-package-total"><span>Gesamtbetrag für das Eventpaket</span><strong>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(selectedPackageDetails.base_amount_cents / 100)}</strong></div>}
-          <button className="btn btn-primary entitlement-package-checkout" type="button" disabled>{contractPackages.length ? "Zahlungsanbindung wird vorbereitet" : "Pakete werden geladen …"}</button>
+          <button className="btn btn-primary entitlement-package-checkout" type="button" disabled={!selectedPackageDetails || checkoutLoading} onClick={() => void startPackageCheckout()}>{checkoutLoading ? "Stripe wird geöffnet …" : selectedPackageDetails ? "Mit Stripe bezahlen" : "Pakete werden geladen …"}</button>
         </>}
         {dialogError && <p className="field-message error" role="alert">{dialogError}</p>}{dialogMessage && <p className="field-message success" role="status">{dialogMessage}</p>}
         <form className="entitlement-code-form" onSubmit={redeemCode}><label className="settings-field"><span>Du hast einen Freischaltcode?</span><input autoComplete="off" autoCapitalize="characters" value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder={`S-${new Date().getFullYear()}-00000000 (Beispiel, nicht einlösbar)`} maxLength={80} /></label><button className="btn btn-primary" type="submit" disabled={redeeming || !code.trim()}>{redeeming ? "Wird eingelöst …" : "Einlösen"}</button></form>
-        <p className="entitlement-payment-note">Die Zahlung für Eventpakete ist noch nicht verbunden. Die digitale Vertragszeichnung wird separat pro Vertrag über Stripe bezahlt; bis zur bestätigten Zahlung bleibt die Zeichnung gesperrt.</p>
+        <p className="entitlement-payment-note">Die Zahlung erfolgt sicher über Stripe. Nach erfolgreicher Zahlung kehrst du zu Splow zurück und bleibst angemeldet. Die digitale Vertragszeichnung wird separat pro Vertrag bezahlt.</p>
       </Modal>}
   </EventEntitlementsContext.Provider>;
 }
