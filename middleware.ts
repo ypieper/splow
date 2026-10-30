@@ -9,13 +9,15 @@ export async function middleware(request: NextRequest) {
   const isLoginPage = pathname === "/login" || pathname.startsWith("/login/") || isAdminLoginPage;
   const isAdminPage = pathname === "/admin" || pathname.startsWith("/admin/");
   const isAuthCallback = pathname === "/auth/confirm";
+  const isPasswordResetPage = pathname === "/passwort-zuruecksetzen";
+  const isPasswordResetApi = pathname === "/api/auth/password-reset";
   const publicPages = new Set(["/", "/landing", "/demo", "/agb", "/impressum", "/datenschutz", "/kontakt"]);
   const isPublicPage = publicPages.has(pathname);
   const isPublicContactApi = pathname === "/api/contact";
   const isPublicReferralRoute = pathname.startsWith("/r/");
   const isPublicAsset = pathname === "/splow-icon.svg" || pathname === "/splow-logo.svg" || pathname.startsWith("/downloads/");
 
-  if (isAuthCallback || isPublicPage || isPublicContactApi || isPublicReferralRoute || isPublicAsset) {
+  if (isAuthCallback || isPasswordResetPage || isPasswordResetApi || isPublicPage || isPublicContactApi || isPublicReferralRoute || isPublicAsset) {
     return NextResponse.next({ request });
   }
   if (!isSupabaseConfigured) return NextResponse.next({ request });
