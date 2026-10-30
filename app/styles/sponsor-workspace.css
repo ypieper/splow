@@ -132,12 +132,11 @@
 .sponsor-task-upload-options { display:grid; gap:10px; }
 .sponsor-task-upload-options > div:first-child { display:flex; flex-wrap:wrap; gap:8px; }
 .sponsor-task-brand-kit-picker { display:grid; gap:10px; width:min(100%,520px); padding:12px; border:1px solid #e3e9ed; border-radius:12px; background:#fff; }
-.sponsor-task-brand-kit-options { display:grid; gap:6px; max-height:220px; overflow:auto; }
-.sponsor-task-brand-kit-options > button { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:9px; padding:9px; border:1px solid #e5eaee; border-radius:9px; background:#fff; color:#405568; text-align:left; cursor:pointer; }
-.sponsor-task-brand-kit-options > button.selected { border-color:var(--accent); background:#fff9f6; }
-.sponsor-task-brand-kit-options > button span { overflow:hidden; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
-.sponsor-task-brand-kit-options > button small { color:#84919c; font-size:9px; }
-.sponsor-task-brand-kit-preview { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.sponsor-task-brand-kit-select { display:grid; gap:6px; color:#52677b; font-size:10px; font-weight:700; }
+.sponsor-task-brand-kit-select select { width:100%; min-height:42px; padding:0 11px; border:1px solid #dce4ea; border-radius:9px; background:#fff; color:#34495e; font:inherit; font-size:12px; }
+.sponsor-task-brand-kit-select select:focus-visible { border-color:#718ce7; outline:3px solid #718ce733; }
+.sponsor-task-brand-kit-preview { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; }
+.sponsor-task-brand-kit-preview small { color:#81909c; font-size:10px; }
 .sponsor-task-brand-kit-preview a { color:var(--accent-strong); font-size:11px; }
 .sponsor-portal-content { width: min(100% - 76px, 1364px); margin: 0 auto; padding: clamp(30px, 4vw, 52px) 0; }
 .sponsor-profile-setup { width:min(100%,560px); margin:0 auto; padding:clamp(22px,5vw,36px); }

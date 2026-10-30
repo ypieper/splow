@@ -15,11 +15,14 @@ export function SponsorBrandKit() {
   const [accountId, setAccountId] = useState("");
   const [uploadLabel, setUploadLabel] = useState("");
   const [labelEdits, setLabelEdits] = useState<Record<string, string>>({});
+  const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const replacementInputRef = useRef<HTMLInputElement>(null);
+  const replacementTargetRef = useRef<BrandFile | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -60,11 +63,38 @@ export function SponsorBrandKit() {
       if (!response.ok) throw new Error(result.error ?? "Das Label konnte nicht gespeichert werden.");
       setFiles((current) => current.map((item) => item.id === file.id ? { ...item, label } : item));
       setLabelEdits((current) => { const next = { ...current }; delete next[file.id]; return next; });
+      setEditingLabelId(null);
       setMessage("Das Label wurde gespeichert.");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Das Label konnte nicht gespeichert werden."); }
     finally { setBusy(false); }
   }
 
+  function startLabelEdit(file: BrandFile) {
+    setLabelEdits((current) => ({ ...current, [file.id]: file.label }));
+    setEditingLabelId(file.id);
+    setError("");
+    setMessage("");
+  }
+
+  function cancelLabelEdit(file: BrandFile) {
+    setLabelEdits((current) => { const next = { ...current }; delete next[file.id]; return next; });
+    setEditingLabelId(null);
+    setError("");
+  }
+
+  async function replaceFile(file: BrandFile | null, replacement?: File) {
+    if (!file || !replacement || busy) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const form = new FormData(); form.set("file", replacement);
+      const response = await fetch(`/api/sponsor/brand-kit?id=${encodeURIComponent(file.id)}`, { method: "PUT", body: form });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Die Datei konnte nicht ersetzt werden.");
+      setMessage("Die Datei wurde ersetzt.");
+      await load();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Die Datei konnte nicht ersetzt werden."); }
+    finally { setBusy(false); }
+  }
   async function remove(file: BrandFile) {
     if (busy || !window.confirm(`„${file.file_name}“ aus dem Brand-Kit entfernen? Bereits eingereichte Nachweise bleiben erhalten.`)) return;
     setBusy(true); setError(""); setMessage("");
@@ -83,7 +113,28 @@ export function SponsorBrandKit() {
       {error && <p className="field-message error" role="alert">{error}</p>}{message && <p className="field-message success" role="status">{message}</p>}
       <section className="panel sponsor-brand-kit-panel"><header><div><h2>Deine Dateien</h2><p>Nur du und Mitglieder deines Sponsor-Kontos können diese Dateien sehen. Veranstalter erhalten Zugriff, wenn du eine Datei als Aufgabennachweis einreichst.</p>{accounts.length > 1 && <label className="sponsor-brand-kit-account"><span>Sponsor-Konto</span><select value={accountId} onChange={(event) => setAccountId(event.target.value)}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>}</div></header>
         <div className="sponsor-brand-kit-upload"><label><span>Label für die Datei</span><input value={uploadLabel} maxLength={100} onChange={(event) => setUploadLabel(event.target.value)} placeholder="z. B. Hauptlogo, Logo weiß oder Website-Banner" /></label><button className="btn btn-primary" type="button" disabled={busy || !accounts.length || !uploadLabel.trim()} onClick={() => inputRef.current?.click()}><Icon name="file" size={14}/>{busy ? "Wird gespeichert …" : "Datei auswählen und hinzufügen"}</button><input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" hidden disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; void upload(file); }}/></div>
-        {loading ? <p className="task-empty">Brand-Kit wird geladen …</p> : files.filter((file) => !accountId || file.account_id === accountId).length ? <div className="sponsor-brand-kit-list">{files.filter((file) => !accountId || file.account_id === accountId).map((file) => <article className="sponsor-brand-kit-file" key={file.id}><span className="settings-section-icon"><Icon name="file" size={16}/></span><div className="sponsor-brand-kit-file-copy"><b>{file.label}</b><small>{file.file_name} · {getSponsorFileTypeLabel(file.file_name)} · {formatSponsorFileSize(Number(file.size_bytes))}</small></div>{file.url && <a className="btn" href={file.url} target="_blank" rel="noreferrer">Ansehen</a>}<label className="sponsor-brand-kit-edit-label"><span className="sr-only">Label bearbeiten</span><input value={labelEdits[file.id] ?? file.label} maxLength={100} onChange={(event) => setLabelEdits((current) => ({ ...current, [file.id]: event.target.value }))}/></label>{(labelEdits[file.id] ?? file.label) !== file.label && <button className="btn" type="button" disabled={busy} onClick={() => void saveLabel(file)}>Label speichern</button>}<button className="btn" type="button" disabled={busy} onClick={() => void remove(file)}>Entfernen</button></article>)}</div> : <div className="sponsor-brand-kit-empty"><h3>Noch keine Dateien im Brand-Kit</h3><p>Füge zum Beispiel dein Logo oder ein Banner hinzu. Bei passenden Aufgaben kannst du die Datei direkt aus dem Brand-Kit auswählen.</p></div>}
+        <input ref={replacementInputRef} type="file" accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" hidden disabled={busy} onChange={(event) => { const replacement = event.target.files?.[0]; event.target.value = ""; const target = replacementTargetRef.current; replacementTargetRef.current = null; void replaceFile(target, replacement); }}/>
+        {loading ? <p className="task-empty">Brand-Kit wird geladen …</p> : files.filter((file) => !accountId || file.account_id === accountId).length ? <div className="sponsor-brand-kit-list">{files.filter((file) => !accountId || file.account_id === accountId).map((file) => {
+          const isEditingLabel = editingLabelId === file.id;
+          return <article className="sponsor-brand-kit-file" key={file.id}>
+            <span className="settings-section-icon"><Icon name="file" size={16}/></span>
+            <div className="sponsor-brand-kit-file-main">
+              {isEditingLabel ? <label className="sponsor-brand-kit-edit-label"><span>Label bearbeiten</span><input autoFocus aria-label={`Label für ${file.file_name}`} value={labelEdits[file.id] ?? file.label} maxLength={100} onChange={(event) => setLabelEdits((current) => ({ ...current, [file.id]: event.target.value }))}/></label> : <strong className="sponsor-brand-kit-file-label">{file.label}</strong>}
+              <small>Dateiname: {file.file_name} · {getSponsorFileTypeLabel(file.file_name)} · {formatSponsorFileSize(Number(file.size_bytes))}</small>
+            </div>
+            <div className="sponsor-brand-kit-actions">
+              {file.url && <a className="btn" href={file.url} target="_blank" rel="noreferrer">Ansehen</a>}
+              {isEditingLabel ? <>
+                <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void saveLabel(file)}>Speichern</button>
+                <button className="btn" type="button" disabled={busy} onClick={() => cancelLabelEdit(file)}>Abbrechen</button>
+              </> : <>
+                <button className="btn" type="button" disabled={busy} onClick={() => startLabelEdit(file)}>Bezeichnung ändern</button>
+                <button className="btn" type="button" disabled={busy} onClick={() => { replacementTargetRef.current = file; replacementInputRef.current?.click(); }}>Datei ersetzen</button>
+                <button className="btn" type="button" disabled={busy} onClick={() => void remove(file)}>Entfernen</button>
+              </>}
+            </div>
+          </article>;
+        })}</div> : <div className="sponsor-brand-kit-empty"><h3>Noch keine Dateien im Brand-Kit</h3><p>Füge zum Beispiel dein Logo oder ein Banner hinzu. Bei passenden Aufgaben kannst du die Datei direkt aus dem Brand-Kit auswählen.</p></div>}
       </section>
     </section>
   </main>;

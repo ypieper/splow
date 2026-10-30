@@ -77,6 +77,42 @@ export async function PATCH(request: Request) {
   return NextResponse.json({ ok: true });
 }
 
+export async function PUT(request: Request) {
+  const auth = await getAccounts();
+  if (!auth.user || !auth.admin) return NextResponse.json({ error: auth.status === 401 ? "Bitte melde dich erneut an." : "Die Datei konnte nicht ersetzt werden." }, { status: auth.status });
+  const id = new URL(request.url).searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Die Datei wurde nicht gefunden." }, { status: 400 });
+  let form: FormData;
+  try { form = await request.formData(); } catch { return NextResponse.json({ error: "Die Datei konnte nicht gelesen werden." }, { status: 400 }); }
+  const file = form.get("file");
+  if (!(file instanceof File)) return NextResponse.json({ error: "Bitte wähle eine Datei aus." }, { status: 400 });
+  const checked = validateSponsorUploadFile({ name: file.name, contentType: file.type, size: file.size });
+  if (!checked) return NextResponse.json({ error: "Bitte lade ein PDF, Bild oder Office-Dokument mit höchstens 25 MB hoch." }, { status: 400 });
+  const { data: existing, error: lookupError } = await auth.admin.from("sponsor_brand_kit_files")
+    .select("id, account_id, storage_path")
+    .eq("id", id)
+    .in("account_id", auth.accountIds)
+    .maybeSingle();
+  if (lookupError) return NextResponse.json({ error: "Die Datei konnte nicht geprüft werden." }, { status: 500 });
+  if (!existing) return NextResponse.json({ error: "Die Datei wurde nicht gefunden." }, { status: 404 });
+
+  const path = `sponsor-brand-kit/${existing.account_id}/${crypto.randomUUID()}-${checked.fileName.replace(/[^a-zA-Z0-9._-]+/g, "-")}`;
+  const { error: storageError } = await auth.admin.storage.from(sponsorUploadBucket).upload(path, file, { contentType: checked.contentType, upsert: false });
+  if (storageError) return NextResponse.json({ error: "Die neue Datei konnte nicht hochgeladen werden." }, { status: 500 });
+  const { data: updated, error: updateError } = await auth.admin.from("sponsor_brand_kit_files")
+    .update({ storage_path: path, file_name: checked.fileName, content_type: checked.contentType, size_bytes: file.size })
+    .eq("id", existing.id)
+    .eq("account_id", existing.account_id)
+    .select("id")
+    .maybeSingle();
+  if (updateError || !updated) {
+    await auth.admin.storage.from(sponsorUploadBucket).remove([path]);
+    return NextResponse.json({ error: updateError ? "Die Datei konnte nicht ersetzt werden." : "Die Datei wurde nicht gefunden." }, { status: updateError ? 500 : 404 });
+  }
+  await auth.admin.storage.from(sponsorUploadBucket).remove([existing.storage_path]);
+  return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+}
+
 export async function DELETE(request: Request) {
   const auth = await getAccounts();
   if (!auth.user || !auth.admin) return NextResponse.json({ error: auth.status === 401 ? "Bitte melde dich erneut an." : "Die Datei konnte nicht entfernt werden." }, { status: auth.status });
