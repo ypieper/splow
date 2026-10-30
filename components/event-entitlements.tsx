@@ -58,16 +58,12 @@ export function EventEntitlementsProvider({ children }: { children: ReactNode })
   const [contractPackages, setContractPackages] = useState<EventContractPackage[]>([]);
   const [code, setCode] = useState("");
   const [selectedPackage, setSelectedPackage] = useState("");
-  const [signatureAddon, setSignatureAddon] = useState(false);
   const [redeeming, setRedeeming] = useState(false);
   const [dialogMessage, setDialogMessage] = useState("");
   const [dialogError, setDialogError] = useState("");
   const currentEntitlement = dialog ? entries[dialog.eventId]?.data : null;
   const currentPackageBooking = dialog ? entries[dialog.eventId]?.packageBooking ?? null : null;
   const selectedPackageDetails = contractPackages.find((item) => item.code === selectedPackage) ?? contractPackages[0] ?? null;
-  const signatureAddonAmount = selectedPackageDetails && signatureAddon
-    ? selectedPackageDetails.max_contracts * selectedPackageDetails.signature_addon_per_contract_cents
-    : 0;
   const loadEntitlement = useCallback(async (eventId: string) => {
     setEntries((current) => ({ ...current, [eventId]: { data: current[eventId]?.data ?? null, packageBooking: current[eventId]?.packageBooking ?? null, loading: true } }));
     try {
@@ -123,7 +119,6 @@ export function EventEntitlementsProvider({ children }: { children: ReactNode })
     setDialog({ eventId, title, reason });
     setCode("");
     setSelectedPackage("");
-    setSignatureAddon(false);
     setDialogMessage("");
     setDialogError("");
     void loadEntitlement(eventId);
@@ -187,19 +182,19 @@ export function EventEntitlementsProvider({ children }: { children: ReactNode })
     {children}
     {dialog && <Modal labelledBy="entitlement-title" className="create-modal entitlement-modal" backdropClassName="modal-backdrop entitlement-backdrop" role="dialog" busy={redeeming} onClose={() => setDialog(null)}>
         <div className="create-modal-head"><div><div className="eyebrow">EVENT FREISCHALTEN</div><h2 id="entitlement-title">Splow für dieses Event freischalten</h2><p>{dialog.title}{dialog.reason ? ` · ${dialog.reason}` : ""}</p></div><button className="icon-button" type="button" aria-label="Dialog schließen" disabled={redeeming} onClick={() => setDialog(null)}><Icon name="close" size={16}/></button></div>
-        {currentPackageBooking ? <section className="entitlement-package-current"><div><strong>Paket gebucht: {eventContractPackageLabel(currentPackageBooking.max_contracts, currentPackageBooking.package_code)}</strong><span>{currentPackageBooking.payment_status === "comped" ? "Über Freischaltcode aktiviert" : `Gesamtbetrag ${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(currentPackageBooking.total_amount_cents / 100)}`}</span></div><p>{currentPackageBooking.signature_addon_selected ? `Digitale Signaturen inklusive (${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(currentPackageBooking.signature_addon_amount_cents / 100)} Add-on).` : currentPackageBooking.payment_status === "comped" ? "Das Paket wurde mit einem Freischaltcode aktiviert." : "Ohne Signatur-Add-on gebucht."}</p></section> : currentEntitlement?.plan_code === "event" || currentEntitlement?.plan_code === "event_pro" ? <section className="entitlement-package-current"><div><strong>Bestehender Tarif: {eventPlanLabel(currentEntitlement.plan_code)}</strong><span>Für dieses Event wurde bereits ein Tarif freigeschaltet.</span></div><p>Die neuen Vertragspakete gelten für neu gebuchte Events. Ein Wechsel bestehender Tarife benötigt eine separate Zuordnung.</p></section> : <>
+        {currentPackageBooking ? <section className="entitlement-package-current"><div><strong>Paket gebucht: {eventContractPackageLabel(currentPackageBooking.max_contracts, currentPackageBooking.package_code)}</strong><span>{currentPackageBooking.payment_status === "comped" ? "Über Freischaltcode aktiviert" : `Gesamtbetrag ${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(currentPackageBooking.total_amount_cents / 100)}`}</span></div><p>Digitale Vertragszeichnungen werden einzeln vor der Freigabe bezahlt.</p></section> : currentEntitlement?.plan_code === "event" || currentEntitlement?.plan_code === "event_pro" ? <section className="entitlement-package-current"><div><strong>Bestehender Tarif: {eventPlanLabel(currentEntitlement.plan_code)}</strong><span>Für dieses Event wurde bereits ein Tarif freigeschaltet.</span></div><p>Die neuen Vertragspakete gelten für neu gebuchte Events. Digitale Vertragszeichnungen werden separat pro Vertrag bezahlt.</p></section> : <>
           <div className="entitlement-package-grid" role="radiogroup" aria-label="Paket auswählen">{contractPackages.map((item) => {
             const packageName = item.name || eventContractPackageLabel(item.max_contracts, item.code);
             return <button key={item.code} className={`entitlement-package-card${selectedPackage === item.code ? " selected" : ""}`} type="button" role="radio" aria-checked={selectedPackage === item.code} onClick={() => setSelectedPackage(item.code)}><span className="entitlement-package-card-heading"><span>{packageName}</span>{packageName === "Pro" && <span className="entitlement-package-popular">Meistgewählt</span>}</span><strong>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(item.base_amount_cents / 100)}</strong><small>einmalig pro Event</small><span className="entitlement-package-features">{packageDescription(item.max_contracts, item.code).map((description) => <span key={description}>{description}</span>)}</span></button>;
           })}</div>
           <aside className="entitlement-enterprise-plan"><div><strong>Enterprise</strong><span>Für Veranstalter mit mehreren Events</span></div><ul className="entitlement-enterprise-features"><li>Individuelle Anzahl an Sponsoren und Verträgen</li><li>Alle Kernfunktionen enthalten</li><li>Umfang und Preis auf Anfrage</li></ul><Link className="btn btn-primary" href="/kontakt?anliegen=enterprise">Enterprise anfragen</Link></aside>
-          {selectedPackageDetails && <div className="entitlement-signature-addon"><label><input type="checkbox" checked={signatureAddon} onChange={(event) => setSignatureAddon(event.target.checked)}/><span><span className="entitlement-signature-addon-heading"><strong>Digitale Signatur hinzufügen</strong><em>Schneller zum Abschluss</em></span><small>Dein Sponsor zeichnet direkt im Sponsorenbereich – ohne Drucken, Scannen oder E-Mail-Pingpong. Viele Sponsoren bevorzugen diesen schnellen digitalen Weg. Gilt für einen Vertrag je Sponsor in deinem Paket.</small></span></label><b>+ {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(signatureAddonAmount / 100)}</b></div>}
-          {selectedPackageDetails && <div className="entitlement-package-total"><span>Gesamtbetrag</span><strong>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format((selectedPackageDetails.base_amount_cents + signatureAddonAmount) / 100)}</strong></div>}
+          {selectedPackageDetails && <div className="entitlement-signature-addon"><span>Digitale Vertragszeichnung</span><strong>Einzelzahlung pro Vertrag</strong><small>Die Zahlung wird vor der Freigabe zur Unterschrift durchgeführt.</small></div>}
+          {selectedPackageDetails && <div className="entitlement-package-total"><span>Gesamtbetrag für das Eventpaket</span><strong>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(selectedPackageDetails.base_amount_cents / 100)}</strong></div>}
           <button className="btn btn-primary entitlement-package-checkout" type="button" disabled>{contractPackages.length ? "Zahlungsanbindung wird vorbereitet" : "Pakete werden geladen …"}</button>
         </>}
         {dialogError && <p className="field-message error" role="alert">{dialogError}</p>}{dialogMessage && <p className="field-message success" role="status">{dialogMessage}</p>}
         <form className="entitlement-code-form" onSubmit={redeemCode}><label className="settings-field"><span>Du hast einen Freischaltcode?</span><input autoComplete="off" autoCapitalize="characters" value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder={`S-${new Date().getFullYear()}-00000000 (Beispiel, nicht einlösbar)`} maxLength={80} /></label><button className="btn btn-primary" type="submit" disabled={redeeming || !code.trim()}>{redeeming ? "Wird eingelöst …" : "Einlösen"}</button></form>
-        <p className="entitlement-payment-note">Pakete und Preise sind vorbereitet. Eine Online-Zahlung ist noch nicht verbunden; bis zur bestätigten Zahlung wird keine Berechtigung freigeschaltet.</p>
+        <p className="entitlement-payment-note">Die Zahlung für Eventpakete ist noch nicht verbunden. Die digitale Vertragszeichnung wird separat pro Vertrag über Stripe bezahlt; bis zur bestätigten Zahlung bleibt die Zeichnung gesperrt.</p>
       </Modal>}
   </EventEntitlementsContext.Provider>;
 }

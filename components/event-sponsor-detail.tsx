@@ -16,7 +16,7 @@ import { fetchStoredEvidence } from "@/lib/evidence-storage";
 import { fetchOrganizerSettings } from "@/lib/organization-settings-storage";
 import { contractFilename, fillContractTemplate } from "@/lib/render-contract-template";
 import type { Sponsor,SponsorContract } from "@/lib/sponsor-types";
-import { setContractSigningDocument, updateContractRecord } from "@/lib/sponsors-storage";
+import { updateContractRecord } from "@/lib/sponsors-storage";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createStoredTasks, deleteStoredTasks, fetchStoredTasks, normalizeLegacyBenefitTaskInstances, updateStoredTask, type StoredTaskRecord, type TaskInput } from "@/lib/tasks-storage";
@@ -96,6 +96,8 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
 }) {
   const { ensureFeature } = useEventEntitlements();
   const [signatureAddonEnabled, setSignatureAddonEnabled] = useState(false);
+  const [signaturePriceCents, setSignaturePriceCents] = useState<number | null>(null);
+  const [signaturePaymentComplete, setSignaturePaymentComplete] = useState(false);
   const [addedBenefits, setAddedBenefits] = useState<EventBenefit[]>([]);
   const [availableBlocks, setAvailableBlocks] = useState(blocks);
   const [blocksLoading, setBlocksLoading] = useState(isSupabaseConfigured);
@@ -213,6 +215,45 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
     window.addEventListener("sponso:event-entitlement-updated", onEntitlementUpdated);
     return () => { cancelled = true; window.removeEventListener("sponso:event-entitlement-updated", onEntitlementUpdated); };
   }, [eventId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(`/api/contracts/${contract.id}/signature-payment`, { cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((result) => {
+        if (cancelled || !Number.isInteger(result?.amountCents)) return;
+        setSignaturePriceCents(result.amountCents);
+        setSignaturePaymentComplete(result.paid === true);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [contract.id]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("contract_id") !== contract.id) return;
+    const paymentResult = params.get("signature_payment");
+    if (paymentResult === "cancelled") {
+      params.delete("signature_payment"); params.delete("contract_id"); params.delete("session_id");
+      window.history.replaceState(null, "", `${window.location.pathname}${params.size ? `?${params}` : ""}`);
+      setMessage("Die Zahlung wurde abgebrochen. Der Vertrag ist noch nicht zur Zeichnung freigegeben.");
+      return;
+    }
+    const sessionId = params.get("session_id");
+    if (paymentResult !== "success" || !sessionId) return;
+    let cancelled = false;
+    void fetch(`/api/contracts/${contract.id}/signature-payment/confirm`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId }),
+    }).then(async (response) => {
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Die Zahlung konnte nicht bestätigt werden.");
+      if (cancelled) return;
+      params.delete("signature_payment"); params.delete("contract_id"); params.delete("session_id");
+      window.history.replaceState(null, "", `${window.location.pathname}${params.size ? `?${params}` : ""}`);
+      window.location.reload();
+    }).catch((error) => { if (!cancelled) setMessage(error instanceof Error ? error.message : "Die Zahlung konnte nicht bestätigt werden."); });
+    return () => { cancelled = true; };
+  }, [contract.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -816,15 +857,32 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
     }
   }
 
+  async function startContractSignaturePayment(signingDocumentId: string) {
+    const response = await fetch(`/api/contracts/${contract.id}/signature-payment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ returnTo: `${window.location.pathname}${window.location.search}`, signingDocumentId }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error ?? "Der Bezahlvorgang konnte nicht gestartet werden.");
+    if (result.alreadyPaid) { window.location.reload(); return; }
+    if (typeof result.url !== "string") throw new Error("Der Bezahlvorgang konnte nicht geöffnet werden.");
+    window.location.assign(result.url);
+  }
+
   async function selectSigningDocument(document: ContractDocument) {
     if (!signatureAddonEnabled || contract.signatureStatus !== "draft" || signingBusy) return;
+    if (signaturePriceCents === null) { setMessage("Der aktuelle Preis wird noch geladen. Bitte versuche es gleich erneut."); return; }
     setSigningBusy(true);
-    const { error } = await setContractSigningDocument(contract.id, document.id);
-    if (error) { setMessage("Die Vertragsfassung konnte nicht freigegeben werden."); setSigningBusy(false); return; }
-    const { error: startError } = await createClient().rpc("start_simple_contract_signing", { target_contract_id: contract.id });
-    if (startError) { setMessage("Der Vertrag konnte nicht zur Zeichnung freigegeben werden."); setSigningBusy(false); return; }
+    setMessage("");
     setSigningDocumentId(document.id);
-    window.location.reload();
+    try {
+      await startContractSignaturePayment(document.id);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Der Bezahlvorgang konnte nicht gestartet werden.");
+      setSigningDocumentId(contract.signingDocumentId ?? "");
+      setSigningBusy(false);
+    }
   }
 
   async function revokeSponsorSigning() {
@@ -849,6 +907,7 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
     try {
       const response = await fetch(`/api/contracts/${contract.id}/simple-signature`, { method: "POST" });
       const result = await response.json();
+      if (response.status === 402) { await startContractSignaturePayment(contract.signingDocumentId ?? signingDocumentId); return; }
       if (!response.ok) throw new Error(result.error ?? "Die Zeichnung konnte nicht gespeichert werden.");
       window.location.reload();
     } catch (error) {
@@ -1055,9 +1114,9 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
       <section className="panel sponsor-contract-files"><div className="table-head"><div><h2>Vertrag</h2><p className="subtitle" style={{ fontSize: 11, marginTop: 4 }}>Wähle, ob du einen Vertrag aus einer Vorlage erstellen oder einen bereits gezeichneten Vertrag hinterlegen möchtest.</p></div></div>{benefits.length === 0 && <p className="field-message hint" role="status">Füge zuerst mindestens eine Leistung hinzu, bevor du einen Vertrag erstellst.</p>}<div className="contract-workflow-choice" role="group" aria-label="Vertragsweg auswählen"><button className={`contract-workflow-choice-button${contractWorkflowMode === "create" ? " active" : ""}`} type="button" aria-pressed={contractWorkflowMode === "create"} onClick={() => setContractWorkflowMode("create")}><Icon name="file" size={17}/><span><b>Vertrag erstellen</b><small className={createModeBlocked || contract.signatureStatus !== "draft" ? "blocked" : undefined}>{createChoiceMessage}</small></span></button><button className={`contract-workflow-choice-button${contractWorkflowMode === "upload" ? " active" : ""}`} type="button" aria-pressed={contractWorkflowMode === "upload"} onClick={() => setContractWorkflowMode("upload")}><Icon name="file" size={17}/><span><b>Gezeichneten Vertrag hochladen</b><small className={uploadModeBlocked ? "blocked" : undefined}>{uploadChoiceMessage}</small></span></button></div>
         {contractWorkflowMode === "create" && !createModeBlocked && <div className="contract-workflow-content"><p className="subtitle">Der Vertrag wird aus der hinterlegten Vorlage erstellt. Danach kannst du ihn dem Sponsor zur digitalen Zeichnung freigeben.</p>{contract.signatureStatus === "draft" && <div className="contract-file-actions"><button className="btn btn-primary" type="button" disabled={benefits.length === 0} title={benefits.length === 0 ? "Füge zuerst mindestens eine Leistung hinzu." : undefined} onClick={() => { void openContractOutput(); }}><Icon name="file" size={15}/> Vertrag erstellen</button></div>}</div>}
         {contractWorkflowMode === "upload" && !uploadModeBlocked && <div className="contract-workflow-content"><p className="subtitle">Der Vertrag wird direkt als gezeichnet markiert. Eine digitale Zeichnung ist danach nicht möglich.{signedContractFile ? " Du kannst die vorhandene gezeichnete Datei hier ersetzen." : ""}</p><label className="settings-field signed-contract-upload-field"><span>{signedContractFile ? "Gezeichneten Vertrag ersetzen" : "Gezeichneten Vertrag als PDF auswählen"}</span><input type="file" accept=".pdf,application/pdf" disabled={uploadingSignedContract || deletingSignedContract} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void uploadExistingSignedContract(file); }}/>{uploadingSignedContract && <small role="status">Vertrag wird hochgeladen …</small>}</label></div>}
-        {contractDocuments.length > 0 && ((contractWorkflowMode === "create" && !createModeBlocked && !signedContractFile) || (contractWorkflowMode === "upload" && !uploadModeBlocked && Boolean(signedContractFile))) && <div className="contract-document-list">{contractDocuments.map((document) => <article className="contract-document-card" key={document.id}><div className="contract-document-file"><Icon name="file" size={17}/><div><b>{document.fileName}</b><small>{document.kind === "generated_pdf" ? "Erstellter Vertrag · PDF" : document.kind === "generated_docx" ? "Erstellter Vertrag · Word-Datei" : document.kind === "signed" ? "Gezeichneter Vertrag" : "Hochgeladener Vertragsentwurf"} · {new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(document.createdAt))}</small></div></div><div className="contract-document-actions"><button className="btn" type="button" onClick={async () => { const { data, error } = await downloadContractDocument(document); if (error || !data) { setMessage("Die Vertragsdatei konnte nicht geladen werden."); return; } downloadDocument(data, document.fileName); }}><Icon name="file" size={14}/> Herunterladen</button><button className="btn signed-contract-delete" type="button" disabled={deletingContractDocumentId !== null || (document.kind === "signed" && deletingSignedContract) || (signingDocumentId === document.id && document.kind !== "signed" && contract.signatureStatus !== "draft")} onClick={() => { if (document.kind === "signed") void removeSignedContractFile(); else void removeContractDocument(document); }}>{document.kind === "signed" ? deletingSignedContract ? "Wird gelöscht …" : "Löschen" : deletingContractDocumentId === document.id ? "Wird gelöscht …" : "Löschen"}</button></div>{document.kind === "signed" ? <label className="signed-contract-sponsor-visibility"><input type="checkbox" checked={signingDocumentId === document.id} disabled={updatingSignedContractVisibility || deletingSignedContract} onChange={(event) => { void setSignedContractVisibility(event.currentTarget.checked); }}/><span><b>Gezeichneten Vertrag dem Sponsor anzeigen</b><small>{signingDocumentId === document.id ? "Der Sponsor kann die gezeichnete Datei im Vertragsbereich herunterladen." : "Die Datei bleibt intern, bis du sie hier für den Sponsor freigibst."}</small></span></label> : signatureAddonEnabled && document.kind !== "generated_docx" && <label className="signed-contract-sponsor-visibility"><input type="checkbox" checked={signingDocumentId === document.id} disabled={(contract.signatureStatus !== "draft" && !(contract.signatureStatus === "pending_sponsor" && !sponsorSigned)) || signingBusy || deletingContractDocumentId !== null} onChange={(event) => { if (event.currentTarget.checked) void setContractDocumentSponsorAccess(document, true); else if (contract.signatureStatus === "pending_sponsor") void revokeSponsorSigning(); else void setContractDocumentSponsorAccess(document, false); }}/><span><b>Vertrag zur Zeichnung durch Sponsor freigeben</b><small>{signingDocumentId === document.id ? contract.signatureStatus === "pending_sponsor" ? "Freigabe aktiv. Zum Zurücknehmen deaktiviere die Checkbox." : "Die Freigabe ist aktiv. Der Zeichnungsablauf wurde gestartet." : "Beim Aktivieren wird der Vertrag dem Sponsor zur digitalen Zeichnung bereitgestellt."}</small></span></label>}</article>)}</div>}
+        {contractDocuments.length > 0 && ((contractWorkflowMode === "create" && !createModeBlocked && !signedContractFile) || (contractWorkflowMode === "upload" && !uploadModeBlocked && Boolean(signedContractFile))) && <div className="contract-document-list">{contractDocuments.map((document) => <article className="contract-document-card" key={document.id}><div className="contract-document-file"><Icon name="file" size={17}/><div><b>{document.fileName}</b><small>{document.kind === "generated_pdf" ? "Erstellter Vertrag · PDF" : document.kind === "generated_docx" ? "Erstellter Vertrag · Word-Datei" : document.kind === "signed" ? "Gezeichneter Vertrag" : "Hochgeladener Vertragsentwurf"} · {new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(document.createdAt))}</small></div></div><div className="contract-document-actions"><button className="btn" type="button" onClick={async () => { const { data, error } = await downloadContractDocument(document); if (error || !data) { setMessage("Die Vertragsdatei konnte nicht geladen werden."); return; } downloadDocument(data, document.fileName); }}><Icon name="file" size={14}/> Herunterladen</button><button className="btn signed-contract-delete" type="button" disabled={deletingContractDocumentId !== null || (document.kind === "signed" && deletingSignedContract) || (signingDocumentId === document.id && document.kind !== "signed" && contract.signatureStatus !== "draft")} onClick={() => { if (document.kind === "signed") void removeSignedContractFile(); else void removeContractDocument(document); }}>{document.kind === "signed" ? deletingSignedContract ? "Wird gelöscht …" : "Löschen" : deletingContractDocumentId === document.id ? "Wird gelöscht …" : "Löschen"}</button></div>{document.kind === "signed" ? <label className="signed-contract-sponsor-visibility"><input type="checkbox" checked={signingDocumentId === document.id} disabled={updatingSignedContractVisibility || deletingSignedContract} onChange={(event) => { void setSignedContractVisibility(event.currentTarget.checked); }}/><span><b>Gezeichneten Vertrag dem Sponsor anzeigen</b><small>{signingDocumentId === document.id ? "Der Sponsor kann die gezeichnete Datei im Vertragsbereich herunterladen." : "Die Datei bleibt intern, bis du sie hier für den Sponsor freigibst."}</small></span></label> : signatureAddonEnabled && document.kind !== "generated_docx" && <label className="signed-contract-sponsor-visibility"><input type="checkbox" checked={signingDocumentId === document.id} disabled={(contract.signatureStatus !== "draft" && !(contract.signatureStatus === "pending_sponsor" && !sponsorSigned)) || signingBusy || deletingContractDocumentId !== null} onChange={(event) => { if (event.currentTarget.checked) void setContractDocumentSponsorAccess(document, true); else if (contract.signatureStatus === "pending_sponsor") void revokeSponsorSigning(); else void setContractDocumentSponsorAccess(document, false); }}/><span><b>Vertrag zur Zeichnung durch Sponsor freigeben</b><small>{signingDocumentId === document.id ? contract.signatureStatus === "pending_sponsor" ? signaturePaymentComplete ? "Freigegeben. Zahlung abgeschlossen; der Sponsor kann jetzt zeichnen." : "Freigegeben, aber Zahlung noch offen. Der Sponsor kann erst danach zeichnen." : `PDF ausgewählt. Zahlung von ${signaturePriceCents === null ? "…" : new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(signaturePriceCents / 100)} pro Vertrag erforderlich; erst danach wird die Zeichnung freigegeben.` : `Beim Aktivieren zahlst du ${signaturePriceCents === null ? "…" : new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(signaturePriceCents / 100)} einmalig. Danach erhält der Sponsor die PDF zur digitalen Zeichnung.`}</small></span></label>}</article>)}</div>}
       </section>
-      {signatureAddonEnabled && <section className="panel contract-signature-preparation"><div className="table-head"><div><h2>Unterschriften</h2><p className="subtitle" style={{ fontSize: 11, marginTop: 4 }}>Die Zeichnung erfolgt in dieser Reihenfolge.</p></div><span className={`status ${contract.signatureStatus === "signed" ? "status-done" : contract.signatureStatus === "pending_sponsor" || contract.signatureStatus === "pending_organizer" ? "status-progress" : "status-open"}`}>{contract.signatureStatus === "signed" ? "Gezeichnet" : contract.signatureStatus === "pending_organizer" ? "Veranstalter zeichnet" : contract.signatureStatus === "pending_sponsor" ? "Sponsor zeichnet" : "Noch nicht gestartet"}</span></div>{contract.signatureStatus === "pending_organizer" && <div className="contract-sponsor-signed-notice" role="status"><b>Der Sponsor hat den Vertrag gezeichnet.</b><span>Du bist jetzt mit der Unterschrift an der Reihe.</span></div>}<div className="signature-steps">{signerStep(sponsorSigned, contract.signatureStatus === "pending_sponsor", "1. Sponsor", contract.sponsorSignedAt)}{signerStep(organizerSigned, contract.signatureStatus === "pending_organizer", "2. Veranstalter", contract.organizerSignedAt, contract.signatureStatus === "pending_organizer" && <button className="btn btn-primary signature-step-action" type="button" disabled={signingBusy} onClick={() => { void signAsOrganizer(); }}>{signingBusy ? "Wird gespeichert …" : "Jetzt zeichnen"}</button>)}</div><p className="contract-signature-note">{signedContractFile ? "Der bestehende gezeichnete Vertrag wurde hochgeladen. Eine weitere digitale Zeichnung ist nicht möglich." : signingDocumentId ? "Mit der Freigabe erhält der verknüpfte Sponsor Zugang zur ausgewählten PDF und kann zuerst zeichnen." : "Wähle oben eine Vertrags-PDF aus, um den Zeichnungsablauf zu starten."}{!signedContractFile && " Die Klick-Zeichnung ist eine interne Bestätigung und keine qualifizierte elektronische Signatur."}</p></section>}
+      {signatureAddonEnabled && <section className="panel contract-signature-preparation"><div className="table-head"><div><h2>Unterschriften</h2><p className="subtitle" style={{ fontSize: 11, marginTop: 4 }}>Die Zeichnung erfolgt in dieser Reihenfolge.</p></div><span className={`status ${contract.signatureStatus === "signed" ? "status-done" : contract.signatureStatus === "pending_sponsor" || contract.signatureStatus === "pending_organizer" ? "status-progress" : "status-open"}`}>{contract.signatureStatus === "signed" ? "Gezeichnet" : contract.signatureStatus === "pending_organizer" ? "Veranstalter zeichnet" : contract.signatureStatus === "pending_sponsor" ? "Sponsor zeichnet" : "Noch nicht gestartet"}</span></div>{contract.signatureStatus === "pending_organizer" && <div className="contract-sponsor-signed-notice" role="status"><b>Der Sponsor hat den Vertrag gezeichnet.</b><span>Du bist jetzt mit der Unterschrift an der Reihe.</span></div>}<div className="signature-steps">{signerStep(sponsorSigned, contract.signatureStatus === "pending_sponsor", "1. Sponsor", contract.sponsorSignedAt)}{signerStep(organizerSigned, contract.signatureStatus === "pending_organizer", "2. Veranstalter", contract.organizerSignedAt, contract.signatureStatus === "pending_organizer" && <button className="btn btn-primary signature-step-action" type="button" disabled={signingBusy} onClick={() => { void signAsOrganizer(); }}>{signingBusy ? "Wird gespeichert …" : "Jetzt zeichnen"}</button>)}</div>{(contract.signatureStatus === "draft" || contract.signatureStatus === "pending_sponsor") && signingDocumentId && !signedContractFile && !signaturePaymentComplete && <button className="btn btn-primary signature-step-action" type="button" disabled={signingBusy || signaturePriceCents === null} onClick={() => { setSigningBusy(true); setMessage(""); void startContractSignaturePayment(signingDocumentId).catch((error) => { setMessage(error instanceof Error ? error.message : "Der Bezahlvorgang konnte nicht gestartet werden."); setSigningBusy(false); }); }}>{signaturePriceCents === null ? "Preis wird geladen …" : `${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(signaturePriceCents / 100)} bezahlen und Zeichnung freigeben`}</button>}<p className="contract-signature-note">{signedContractFile ? "Der bestehende gezeichnete Vertrag wurde hochgeladen. Eine weitere digitale Zeichnung ist nicht möglich." : signingDocumentId ? contract.signatureStatus === "pending_sponsor" && !signaturePaymentComplete ? "Der Sponsor sieht die PDF bereits, kann aber erst nach bestätigter Zahlung unterschreiben." : signaturePaymentComplete ? "Die Zahlung ist abgeschlossen. Der Sponsor kann jetzt zeichnen." : contract.signatureStatus === "pending_organizer" ? "Die Zahlung muss vor der nächsten Unterschrift abgeschlossen sein." : "Wähle die Vertrags-PDF aus und bezahle den angezeigten Betrag, bevor du sie dem Sponsor zur Zeichnung freigibst." : "Wähle oben eine Vertrags-PDF aus, um den Zeichnungsablauf zu starten."}{!signedContractFile && " Die Klick-Zeichnung ist eine interne Bestätigung und keine qualifizierte elektronische Signatur."}</p></section>}
     </>}
     {activeTab === "Leistungen" && <div className="panel table-panel sponsor-contract-benefits"><div className="table-head"><div><h2>Vereinbarte Leistungen</h2><p className="subtitle" style={{ fontSize: 11, marginTop: 4 }}>Einzelleistungen und Nachweisstatus für diesen Eventvertrag.</p></div><button className="btn btn-primary" type="button" onClick={() => { setMessage(""); openAddBenefits(); }}><Icon name="plus" size={14}/> Leistung hinzufügen</button></div><div className="sponsor-benefit-filters" role="group" aria-label="Leistungen nach Art filtern">{([{ value: "all", label: "Alle" }, { value: "monetary", label: "Geldleistungen" }, { value: "in_kind", label: "Sachleistungen" }] as const).map((filter) => <button key={filter.value} className={`filter-chip${benefitTypeFilter === filter.value ? " active" : ""}`} type="button" aria-pressed={benefitTypeFilter === filter.value} onClick={() => setBenefitTypeFilter(filter.value)}>{filter.label}</button>)}</div>{benefitTypeFilter === "in_kind" && <p className="sponsor-in-kind-origin-note">Die Sachleistungen ergeben sich aus den Leistungen, die im Reiter „Leistungen“ ausgewählt wurden. Sachleistungen werden zur besseren Nachvollziehbarkeit hier gesondert ausgegeben.</p>}{filteredBenefits.length ? <div className="sponsor-benefit-cards">{filteredBenefits.map((benefit) => {
       const benefitTasks = quantityBoundAssignedTasks.filter((task) => task.source === "Leistung" && task.benefit_id === benefit.id);
