@@ -37,7 +37,7 @@ type EventSponsorTab = "Vertrag" | "Rechnung" | "Leistungen" | "Dokumente";
 const SPONSOR_ASSIGNEE = "__sponsor__";
 
 type StripeEmbeddedCheckoutInstance = { mount: (target: HTMLElement) => void; destroy: () => void };
-type StripeClient = { initEmbeddedCheckout: (options: { fetchClientSecret: () => Promise<string> }) => Promise<StripeEmbeddedCheckoutInstance> };
+type StripeClient = { createEmbeddedCheckoutPage: (options: { fetchClientSecret: () => Promise<string> }) => Promise<StripeEmbeddedCheckoutInstance> };
 declare global { interface Window { Stripe?: (publishableKey: string) => StripeClient } }
 
 function grossValueFromNet(netValue: number) {
@@ -231,7 +231,7 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
       if (!stripePublishableKey) throw new Error("Der Stripe-Schlüssel fehlt. Hinterlege NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY in Vercel und veröffentliche die Änderung erneut.");
       const stripe = window.Stripe?.(stripePublishableKey);
       if (!stripe) throw new Error("Stripe konnte nicht geladen werden. Bitte prüfe deine Verbindung und versuche es erneut.");
-      checkout = await stripe.initEmbeddedCheckout({ fetchClientSecret: async () => checkoutClientSecret });
+      checkout = await stripe.createEmbeddedCheckoutPage({ fetchClientSecret: async () => checkoutClientSecret });
       if (!active) { checkout.destroy(); return; }
       embeddedCheckoutInstanceRef.current = checkout;
       checkout.mount(target);
