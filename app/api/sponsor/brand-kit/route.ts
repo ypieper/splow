@@ -27,11 +27,21 @@ export async function GET(request: Request) {
     permittedAccountIds = (assignments ?? []).map((assignment) => assignment.account_id);
   }
   if (!permittedAccountIds.length) return NextResponse.json({ files: [] }, { headers: { "Cache-Control": "no-store" } });
-  const [{ data, error }, { data: accounts }] = await Promise.all([
+  const [{ data: filesData, error: filesError }, { data: accounts }] = await Promise.all([
     auth.admin.from("sponsor_brand_kit_files").select("id, account_id, file_name, label, content_type, size_bytes, created_at, storage_path").in("account_id", permittedAccountIds).order("created_at", { ascending: false }),
     auth.admin.from("sponsor_accounts").select("id, name").in("id", auth.accountIds).order("created_at", { ascending: true }),
   ]);
-  if (error) return NextResponse.json({ error: "Das Brand-Kit konnte nicht geladen werden." }, { status: 500 });
+  let data = filesData;
+  if (filesError?.code === "42703") {
+    const legacyResult = await auth.admin.from("sponsor_brand_kit_files")
+      .select("id, account_id, file_name, content_type, size_bytes, created_at, storage_path")
+      .in("account_id", permittedAccountIds)
+      .order("created_at", { ascending: false });
+    if (legacyResult.error) return NextResponse.json({ error: "Das Brand-Kit konnte nicht geladen werden." }, { status: 500 });
+    data = (legacyResult.data ?? []).map((file) => ({ ...file, label: file.file_name }));
+  } else if (filesError) {
+    return NextResponse.json({ error: "Das Brand-Kit konnte nicht geladen werden." }, { status: 500 });
+  }
   const files = await Promise.all((data ?? []).map(async ({ storage_path, ...file }) => {
     const { data: signed } = await auth.admin!.storage.from(sponsorUploadBucket).createSignedUrl(storage_path, 3600);
     return { ...file, url: signed?.signedUrl ?? null };
