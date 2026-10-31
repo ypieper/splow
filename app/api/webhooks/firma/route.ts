@@ -95,7 +95,7 @@ export async function POST(request: Request) {
   if (!["signing_request.recipient.signed", "signing_request.completed", "signing_request.recipient.declined", "signing_request.declined", "signing_request.cancelled"].includes(event.type ?? "")) return NextResponse.json({ received: true });
 
   try {
-    const requestId = event.data?.signing_request?.id ?? event.data?.signing_request_id;
+    const requestId: string | undefined = event.data?.signing_request?.id ?? event.data?.signing_request_id;
     if (!requestId) return NextResponse.json({ received: true });
     const admin = createAdminClient();
     const { data: contract, error: contractError } = await admin.from("contracts")
@@ -103,17 +103,17 @@ export async function POST(request: Request) {
       .eq("signing_provider", "firma").eq("signing_request_id", requestId).maybeSingle();
     if (contractError) throw contractError;
     if (!contract || contract.signature_status === "draft") return NextResponse.json({ received: true });
-    const [{ data: event, error: eventError }, { data: sponsor, error: sponsorError }] = await Promise.all([
+    const [{ data: eventRecord, error: eventError }, { data: sponsor, error: sponsorError }] = await Promise.all([
       admin.from("events").select("contact_email, organization_id").eq("id", contract.event_id).maybeSingle(),
       admin.from("sponsors").select("email").eq("id", contract.sponsor_id).maybeSingle(),
     ]);
     if (eventError || sponsorError) throw eventError ?? sponsorError;
-    const { data: owner, error: ownerError } = event?.organization_id && !event.contact_email
-      ? await admin.from("organization_members").select("email").eq("organization_id", event.organization_id).eq("role", "owner").limit(1).maybeSingle()
+    const { data: owner, error: ownerError } = eventRecord?.organization_id && !eventRecord.contact_email
+      ? await admin.from("organization_members").select("email").eq("organization_id", eventRecord.organization_id).eq("role", "owner").limit(1).maybeSingle()
       : { data: null, error: null };
     if (ownerError) throw ownerError;
     const sponsorEmail = sponsor?.email?.trim().toLowerCase();
-    const organizerEmail = (event?.contact_email || owner?.email || "").trim().toLowerCase();
+    const organizerEmail = (eventRecord?.contact_email || owner?.email || "").trim().toLowerCase();
     const recipientRole = (recipient: FirmaRecipientEvent) => {
       const email = recipient.email?.trim().toLowerCase();
       return recipient.order === 1 || (email && email === sponsorEmail)
