@@ -1,5 +1,7 @@
 # Anwendungskarte: Splow
 
+Für die aktuelle Karte der technischen Schnittstellen und ausgetauschten Daten siehe [`schnittstellen-landkarte.md`](./schnittstellen-landkarte.md).
+
 Stand: 21. Oktober 2026. Diese Karte beschreibt die im Repository erkennbare Architektur und die in [`test-environments.md`](./test-environments.md) dokumentierte Zuordnung. Einstellungen in Vercel, Supabase, Resend und beim DNS-Anbieter wurden für diese Karte nicht in den jeweiligen Konten überprüft.
 
 ## 1. Entwicklung, Test und Livebetrieb
