@@ -15,6 +15,7 @@ flowchart LR
     subgraph SB["Supabase"]
         AUTH["Auth<br/>Konten und Sitzungen"]
         DB[("Postgres<br/>Events, Sponsoren, Verträge,<br/>Leistungen, Aufgaben, Nachweise,<br/>Zahlungs- und Signaturstatus")]
+        Q[("Firma-Webhooks-Queue<br/>Ereignis-ID, Status,<br/>Versuche und nächster Lauf")]
         FILES["Storage<br/>Vertrags-PDFs, unterschriebene PDFs,<br/>Nachweise, Logos und Dokumente"]
     end
 
@@ -40,8 +41,10 @@ flowchart LR
     FIRMA -.->|"Unterschrifts-Einladungen per E-Mail"| O
     FIRMA -.->|"Unterschrifts-Einladungen per E-Mail"| S
     FIRMA -->|"Webhook: unterschrieben, abgelehnt<br/>oder abgebrochen; Zeit und ggf. Grund"| API
-    API -->|"Signaturstatus und Rückgabegrund"| DB
+    API -->|"Nach Signaturprüfung:<br/>Ereignis dauerhaft einreihen"| Q
+    API -->|"Queue-Auftrag verarbeiten;<br/>Signaturstatus und Rückgabegrund"| DB
     API -->|"Nach vollständiger Zeichnung:<br/>unterschriebene PDF abrufen und speichern"| FILES
+    Q -->|"Fällige, idempotente Aufträge"| API
 ```
 
 ## Was zwischen Splow und den Diensten fließt
@@ -50,7 +53,8 @@ flowchart LR
 - **Supabase Postgres:** Speichert unter anderem Event- und Organisationsdaten, Sponsoren, Verträge, Leistungsbausteine, Aufgaben, Nachweis-Metadaten sowie Zahlungs- und Signaturstatus. Browserzugriffe laufen mit der angemeldeten Sitzung und den Datenbankregeln (RLS); privilegierte serverseitige Abläufe verwenden den Admin-Zugriff nur auf dem Server.
 - **Supabase Storage:** Speichert Vertragsdateien, die final unterschriebenen PDFs, Sponsor- und Eventdokumente, Logos und Nachweisdateien. Dateien werden über berechtigte Zugriffe oder zeitlich begrenzte Links bereitgestellt.
 - **Stripe:** Beim Buchen eines Vertragspakets sendet Splow Betrag und Zuordnungsdaten wie Event und Paket an Stripe. Die Zahlung wird in Splow eingebettet angezeigt. Stripe meldet den bestätigten Zahlungsstatus über einen signierten Webhook zurück; Splow verbucht danach Paket und Berechtigung in Supabase. Kartendaten verarbeitet Stripe.
-- **Firma.dev:** Splow übermittelt die Vertrags-PDF sowie Namen, E-Mail-Adressen und Reihenfolge der Unterzeichnenden. Firma sendet die Signaturanfragen. Webhooks melden Signaturen, Ablehnungen oder Abbrüche samt verfügbaren Zeitpunkten und Rückgabegrund. Nach erfolgreicher doppelter Zeichnung ruft Splow die finale PDF ab und speichert sie in Supabase Storage.
+- **Firma.dev:** Splow übermittelt die Vertrags-PDF sowie Namen, E-Mail-Adressen und Reihenfolge der Unterzeichnenden. Firma sendet die Signaturanfragen. Webhooks melden Signaturen, Ablehnungen oder Abbrüche samt verfügbaren Zeitpunkten und Rückgabegrund. Splow prüft die HMAC-Signatur und speichert das Ereignis dedupliziert in einer privaten Supabase-Queue, bevor es Firma bestätigt. Die Hintergrundverarbeitung aktualisiert den Signaturstatus und speichert nach erfolgreicher doppelter Zeichnung die finale PDF in Supabase Storage.
+- **Firma-Queue-Worker:** Ein unmittelbarer Next.js-Hintergrundlauf verarbeitet neue Aufträge. Ein mit `CRON_SECRET` geschützter Vercel Cron verarbeitet liegengebliebene Aufträge als Wiederherstellung. Auf Hobby läuft dieser Cron höchstens einmal täglich und nur auf Production; Preview verwendet den unmittelbaren Hintergrundlauf.
 
 ## Aktueller Hinweis zur Vertragszahlung
 

@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(22);
 
 insert into auth.users (id, aud, role, email, encrypted_password, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 values
@@ -27,6 +27,12 @@ values
   ('71000000-0000-4000-8000-000000000003', '61000000-0000-4000-8000-000000000005', 'organization-owner@example.test', 'owner')
 on conflict (organization_id, user_id) do nothing;
 
+insert into public.events (id, owner_id, organization_id, title)
+values
+  ('72000000-0000-4000-8000-000000000001', '61000000-0000-4000-8000-000000000001', '71000000-0000-4000-8000-000000000001', 'Team Security Event'),
+  ('72000000-0000-4000-8000-000000000003', '61000000-0000-4000-8000-000000000005', '71000000-0000-4000-8000-000000000003', 'Other Organization Event')
+on conflict (id) do nothing;
+
 insert into storage.buckets (id, name, public)
 values ('sponsorproof-files', 'sponsorproof-files', false)
 on conflict (id) do nothing;
@@ -44,6 +50,10 @@ reset role;
 
 select set_config('request.jwt.claim.sub', '61000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
+select is((select count(*)::integer from public.events where id = '72000000-0000-4000-8000-000000000001'), 1, 'A workspace member can read their own event');
+select is((select count(*)::integer from public.events where id = '72000000-0000-4000-8000-000000000003'), 0, 'A workspace member cannot read another organization event');
+select is((select count(*)::integer from storage.objects where bucket_id = 'sponsorproof-files' and name = '71000000-0000-4000-8000-000000000001/events/72000000-0000-4000-8000-000000000001/evidence/team-test.jpg'), 1, 'A workspace member can read their own stored file');
+select is((select count(*)::integer from storage.objects where bucket_id = 'sponsorproof-files' and name = '71000000-0000-4000-8000-000000000003/events/72000000-0000-4000-8000-000000000003/evidence/delete-test.jpg'), 0, 'A workspace member cannot read another organization file');
 select lives_ok($$select public.set_organization_member_role('61000000-0000-4000-8000-000000000002', 'owner')$$, 'An owner can promote a team member');
 select lives_ok($$select public.set_organization_member_role('61000000-0000-4000-8000-000000000002', 'member')$$, 'An owner can change a member role back');
 select throws_ok($$select public.set_organization_member_role('61000000-0000-4000-8000-000000000001', 'member')$$, 'P0001', 'At least one workspace owner must remain', 'The last owner cannot demote themselves');

@@ -1,77 +1,55 @@
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { after, NextResponse } from "next/server";
-import { downloadFirmaSignedPdf, getFirmaSigningUsers } from "@/lib/firma-signing";
+import { processFirmaWebhookQueue, type FirmaRecipientEvent, type FirmaWebhookPayload } from "@/lib/firma-webhook-jobs";
+import { verifyFirmaWebhookSignature } from "@/lib/firma-webhook-signature";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
-type FirmaRecipientEvent = {
-  email?: string;
-  order?: number;
-  designation?: string;
-  signed_at?: string | null;
-  finished_on?: string | null;
-  declined_on?: string | null;
-  decline_reason?: string | null;
-};
-type FirmaEvent = {
-  id?: string;
-  type?: string;
-  created_at?: string;
-  data?: {
-    signing_request?: { id?: string; completed_at?: string | null; cancelled_at?: string | null };
-    signing_request_id?: string;
-    recipient?: FirmaRecipientEvent;
-    recipients?: FirmaRecipientEvent[];
+function normalizeRecipient(value: FirmaRecipientEvent): FirmaRecipientEvent {
+  const text = (input: unknown, max: number) => typeof input === "string" ? input.slice(0, max) : undefined;
+  return {
+    email: text(value.email, 254),
+    order: typeof value.order === "number" && Number.isInteger(value.order) ? value.order : undefined,
+    designation: text(value.designation, 80),
+    signed_at: text(value.signed_at, 80) ?? null,
+    finished_on: text(value.finished_on, 80) ?? null,
+    declined_on: text(value.declined_on, 80) ?? null,
+    decline_reason: text(value.decline_reason, 1000) ?? null,
   };
-};
-
-function signatureMatches(rawBody: string, header: string | null, secret: string) {
-  if (!header || !secret) return false;
-  const parts = Object.fromEntries(header.split(",").map((part) => {
-    const index = part.indexOf("=");
-    return index < 0 ? ["", ""] : [part.slice(0, index).trim(), part.slice(index + 1).trim()];
-  }));
-  const timestamp = parts.t;
-  const signature = parts.v1;
-  if (!timestamp || !/^\d+$/.test(timestamp) || !signature || !/^[a-f\d]{64}$/i.test(signature)) return false;
-  if (Math.abs(Math.floor(Date.now() / 1000) - Number(timestamp)) > 300) return false;
-  const expected = createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest();
-  const actual = Buffer.from(signature, "hex");
-  return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-async function saveFirmaPdf(admin: ReturnType<typeof createAdminClient>, contract: { id: string; signing_request_id: string }, source: { file_name: string; storage_path: string }, organizationId: string) {
-  const { data: existing, error: existingError } = await admin.from("contract_documents")
-    .select("id").eq("contract_id", contract.id).eq("kind", "signed").maybeSingle();
-  if (existingError) throw existingError;
-  if (existing?.id) {
-    await admin.from("contracts").update({ signing_document_id: existing.id }).eq("id", contract.id).eq("signature_status", "signed");
-    return;
-  }
-
-  const signedPdf = await downloadFirmaSignedPdf(contract.signing_request_id);
-  const baseName = source.file_name.replace(/\.pdf$/i, "");
-  const fileName = `${baseName}_gezeichnet.pdf`;
-  const storagePath = `${organizationId}/contracts/${contract.id}/signed-firma-${randomUUID()}-${fileName.replace(/[^a-zA-Z0-9._-]+/g, "-")}`;
-  const { error: uploadError } = await admin.storage.from("sponsorproof-files").upload(storagePath, signedPdf, { contentType: "application/pdf", upsert: false });
-  if (uploadError) throw uploadError;
-  const { data: inserted, error: insertError } = await admin.from("contract_documents").insert({
-    organization_id: organizationId,
-    contract_id: contract.id,
-    kind: "signed",
-    storage_path: storagePath,
-    file_name: fileName,
-    content_type: "application/pdf",
-  }).select("id").single();
-  if (insertError || !inserted) {
-    await admin.storage.from("sponsorproof-files").remove([storagePath]);
-    throw insertError ?? new Error("Die gezeichnete PDF konnte nicht gespeichert werden.");
-  }
-  const { error: updateError } = await admin.from("contracts").update({ signing_document_id: inserted.id })
-    .eq("id", contract.id).eq("signature_status", "signed");
-  if (updateError) throw updateError;
+function normalizedPayload(event: FirmaWebhookPayload, requestId: string): FirmaWebhookPayload {
+  const recipients = Array.isArray(event.data?.recipients)
+    ? event.data.recipients.filter((item): item is FirmaRecipientEvent => Boolean(item) && typeof item === "object").map(normalizeRecipient)
+    : [];
+  const recipient = event.data?.recipient && typeof event.data.recipient === "object"
+    ? normalizeRecipient(event.data.recipient)
+    : undefined;
+  return {
+    id: event.id,
+    type: event.type,
+    ...(typeof event.created_at === "string" ? { created_at: event.created_at.slice(0, 80) } : {}),
+    data: {
+      signing_request_id: requestId,
+      signing_request: {
+        id: requestId,
+        completed_at: typeof event.data?.signing_request?.completed_at === "string" ? event.data.signing_request.completed_at.slice(0, 80) : null,
+        cancelled_at: typeof event.data?.signing_request?.cancelled_at === "string" ? event.data.signing_request.cancelled_at.slice(0, 80) : null,
+      },
+      ...(recipient ? { recipient } : {}),
+      recipients,
+    },
+  };
 }
+
+const supportedEvents = new Set([
+  "signing_request.recipient.signed",
+  "signing_request.completed",
+  "signing_request.recipient.declined",
+  "signing_request.declined",
+  "signing_request.cancelled",
+]);
 
 export async function POST(request: Request) {
   const secret = process.env.FIRMA_WEBHOOK_SECRET?.trim();
@@ -81,110 +59,56 @@ export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get("x-firma-signature");
   const previousSignature = request.headers.get("x-firma-signature-old");
-  const validSignature = signatureMatches(rawBody, signature, secret)
-    || signatureMatches(rawBody, previousSignature, secret)
-    || Boolean(previousSecret && (signatureMatches(rawBody, signature, previousSecret) || signatureMatches(rawBody, previousSignature, previousSecret)));
+  const validSignature = verifyFirmaWebhookSignature(rawBody, signature, secret)
+    || verifyFirmaWebhookSignature(rawBody, previousSignature, secret)
+    || Boolean(previousSecret && (verifyFirmaWebhookSignature(rawBody, signature, previousSecret) || verifyFirmaWebhookSignature(rawBody, previousSignature, previousSecret)));
   if (!validSignature) {
     return NextResponse.json({ error: "Ungültige Webhook-Signatur." }, { status: 401 });
   }
 
-  let event: FirmaEvent;
-  try { event = JSON.parse(rawBody) as FirmaEvent; }
+  let event: FirmaWebhookPayload;
+  try { event = JSON.parse(rawBody) as FirmaWebhookPayload; }
   catch { return NextResponse.json({ error: "Ungültiges Webhook-Format." }, { status: 400 }); }
   if (event.type === "webhook.test" || !event.id) return NextResponse.json({ received: true });
-  if (!["signing_request.recipient.signed", "signing_request.completed", "signing_request.recipient.declined", "signing_request.declined", "signing_request.cancelled"].includes(event.type ?? "")) return NextResponse.json({ received: true });
+  if (!supportedEvents.has(event.type ?? "")) return NextResponse.json({ received: true });
+
+  const requestId = event.data?.signing_request?.id ?? event.data?.signing_request_id;
+  if (!requestId) return NextResponse.json({ received: true });
 
   try {
-    const requestId: string | undefined = event.data?.signing_request?.id ?? event.data?.signing_request_id;
-    if (!requestId) return NextResponse.json({ received: true });
     const admin = createAdminClient();
     const { data: contract, error: contractError } = await admin.from("contracts")
-      .select("id, event_id, sponsor_id, signature_status, signing_document_id, signing_request_id")
-      .eq("signing_provider", "firma").eq("signing_request_id", requestId).maybeSingle();
+      .select("id, signature_status").eq("signing_provider", "firma").eq("signing_request_id", requestId).maybeSingle();
     if (contractError) throw contractError;
     if (!contract || contract.signature_status === "draft") return NextResponse.json({ received: true });
-    const [{ data: eventRecord, error: eventError }, { data: sponsor, error: sponsorError }] = await Promise.all([
-      admin.from("events").select("contact_email, organization_id").eq("id", contract.event_id).maybeSingle(),
-      admin.from("sponsors").select("email").eq("id", contract.sponsor_id).maybeSingle(),
-    ]);
-    if (eventError || sponsorError) throw eventError ?? sponsorError;
-    const { data: owner, error: ownerError } = eventRecord?.organization_id && !eventRecord.contact_email
-      ? await admin.from("organization_members").select("email").eq("organization_id", eventRecord.organization_id).eq("role", "owner").limit(1).maybeSingle()
-      : { data: null, error: null };
-    if (ownerError) throw ownerError;
-    const sponsorEmail = sponsor?.email?.trim().toLowerCase();
-    const organizerEmail = (eventRecord?.contact_email || owner?.email || "").trim().toLowerCase();
-    const recipientRole = (recipient: FirmaRecipientEvent) => {
-      const email = recipient.email?.trim().toLowerCase();
-      return recipient.order === 1 || (email && email === sponsorEmail)
-        ? "sponsor"
-        : recipient.order === 2 || (email && email === organizerEmail) ? "organizer" : null;
-    };
-    let recipients = event.data?.recipients ?? [];
-    if (event.data?.recipient) recipients = [...recipients, event.data.recipient];
-    if (["signing_request.recipient.declined", "signing_request.declined"].includes(event.type ?? "")) {
-      const users = await getFirmaSigningUsers(requestId);
-      recipients = [...recipients, ...users];
-    }
-    if (event.type === "signing_request.completed" && recipients.length === 0) {
-      recipients = [{ order: 1, designation: "Signer", signed_at: event.data?.signing_request?.completed_at }, { order: 2, designation: "Signer", signed_at: event.data?.signing_request?.completed_at }];
-    }
-    for (const recipient of recipients.filter((item) => item.designation?.toLowerCase() === "signer" && (item.signed_at || item.finished_on)).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
-      const signerRole = recipientRole(recipient);
-      if (!signerRole) continue;
-      const { error: recordError } = await admin.rpc("record_contract_signature", {
-        target_contract_id: contract.id,
-        signer_role: signerRole,
-        occurred_at: recipient.signed_at || recipient.finished_on,
-      });
-      if (recordError) throw recordError;
-    }
 
-    if (["signing_request.recipient.declined", "signing_request.declined"].includes(event.type ?? "")) {
-      const recipient = recipients.find((item) => item.declined_on || item.decline_reason)
-        ?? (event.type === "signing_request.recipient.declined" ? event.data?.recipient : undefined);
-      const signerRole = recipient ? recipientRole(recipient) : null;
-      if (signerRole) {
-        const { error: declineError } = await admin.rpc("record_contract_signature_decline", {
-          target_contract_id: contract.id,
-          provider_request_id: requestId,
-          signer_role: signerRole,
-          occurred_at: recipient?.declined_on || event.created_at,
-          decline_reason: recipient?.decline_reason ?? null,
-        });
-        if (declineError) throw declineError;
-      }
-    }
+    const { data: jobRows, error: enqueueError } = await admin.rpc("enqueue_firma_webhook_job", {
+      target_event_id: event.id,
+      target_signing_request_id: requestId,
+      target_event_type: event.type,
+      target_event_payload: normalizedPayload(event, requestId),
+    });
+    if (enqueueError) throw enqueueError;
+    const job = Array.isArray(jobRows) ? jobRows[0] as { job_id?: string; job_status?: string } | undefined : undefined;
+    if (!job?.job_id) throw new Error("Der Firma-Webhook konnte nicht dauerhaft vorgemerkt werden.");
 
-    if (event.type === "signing_request.cancelled") {
-      const { error: cancellationError } = await admin.rpc("record_contract_signing_cancellation", {
-        target_contract_id: contract.id,
-        provider_request_id: requestId,
-        occurred_at: event.data?.signing_request?.cancelled_at || event.created_at,
-      });
-      if (cancellationError) throw cancellationError;
-    }
-
-    if (event.type === "signing_request.completed") {
+    if (job.job_status !== "completed") {
       after(async () => {
-        try {
-          const [{ data: currentContract, error: currentError }, { data: eventData, error: eventError }, { data: source, error: sourceError }] = await Promise.all([
-            admin.from("contracts").select("id, event_id, signature_status, signing_document_id").eq("id", contract.id).maybeSingle(),
-            admin.from("events").select("organization_id").eq("id", contract.event_id).maybeSingle(),
-            contract.signing_document_id ? admin.from("contract_documents").select("file_name, storage_path").eq("id", contract.signing_document_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-          ]);
-          if (currentError || eventError || sourceError) throw currentError ?? eventError ?? sourceError;
-          if (currentContract?.signature_status === "signed" && eventData?.organization_id && source) {
-            await saveFirmaPdf(admin, { id: currentContract.id, signing_request_id: requestId }, source, eventData.organization_id);
+        for (let attempt = 1; attempt <= 3; attempt += 1) {
+          try {
+            const result = await processFirmaWebhookQueue({ jobId: job.job_id });
+            if (result.claimed === 0 || result.completed > 0 || result.failed > 0 || result.pending === 0) return;
+          } catch (error) {
+            console.error("Firma webhook queue processing failed", { eventId: event.id, attempt, error });
+            return;
           }
-        } catch (error) {
-          console.error("Firma signed PDF storage failed", error);
+          if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 1_000));
         }
       });
     }
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Firma webhook processing failed", error);
-    return NextResponse.json({ error: "Webhook-Verarbeitung fehlgeschlagen." }, { status: 500 });
+    console.error("Firma webhook queue submission failed", { eventId: event.id, error });
+    return NextResponse.json({ error: "Webhook konnte nicht sicher vorgemerkt werden." }, { status: 500 });
   }
 }

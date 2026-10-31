@@ -53,12 +53,13 @@ pnpm test:sandbox
 Projekt-Allowlist in `supabase/test-project.json`. Ein abweichender
 `SPONSO_TEST_PROJECT_REF` wird vor dem CLI-Aufruf abgewiesen. Jeder SQL-Test
 läuft in einer Transaktion mit `ROLLBACK`; die Testdaten daraus bleiben nicht
-gespeichert. Die vier SQL-Dateien enthalten zusammen 103 Prüfungen.
+gespeichert. Die fünf SQL-Dateien enthalten derzeit zusammen 128 Prüfungen.
 
 Der alternative Befehl `pnpm test:db` ist ausschließlich für einen lokalen
 Supabase-Stack gedacht und benötigt Docker oder eine unterstützte Alternative.
 
-Am 21.10.2026 tatsächlich geprüft:
+Am 21.10.2026 wurden die damals vorhandenen vier SQL-Dateien mit 103 Prüfungen
+tatsächlich im Sandbox-Projekt ausgeführt:
 
 - 26 Unit-Tests erfolgreich.
 - 103 SQL-Prüfungen im freigegebenen Testprojekt erfolgreich.
