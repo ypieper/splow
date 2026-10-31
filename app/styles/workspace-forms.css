@@ -310,6 +310,8 @@
 .signature-step.done .signature-step-marker { border-color:#4b9b79; background:#4b9b79; }
 .signature-step.active { border-color:#d9b39b; background:#fffaf7; }
 .signature-step.active .signature-step-marker { border-color:var(--accent); box-shadow:inset 0 0 0 5px #fff; background:var(--accent); }
+.signature-step.declined { border-color:#f0c9c1; background:#fff5f2; }
+.signature-step.withdrawn { border-color:#e7d7cb; background:#faf6f2; }
 .signature-step-action { flex:none; min-height:34px; margin-left:auto; padding:0 11px; font-size:10px; white-space:nowrap; }
 .signature-step > div { display:grid; gap:4px; min-width:0; }
 .signature-step b { color:#354657; font-size:11px; }
