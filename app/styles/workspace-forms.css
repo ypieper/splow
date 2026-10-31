@@ -326,9 +326,14 @@
 .contract-document-file > div { display:grid; gap:4px; min-width:0; }
 .contract-document-file b { overflow-wrap:anywhere; color:#354657; font-size:11px; }
 .contract-document-file small { color:#87919c; font-size:10px; }
+.contract-document-card.is-signed-contract { border-color:#cfe7dc; background:#f3fbf6; }
+.contract-document-card.is-signed-contract .contract-document-file { color:#25845f; }
+.contract-document-card.is-signed-contract .contract-document-file b { color:#29483a; }
 .contract-document-actions { display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
 .contract-document-actions .btn { min-height:34px; padding:0 11px; font-size:10px; }
 .contract-document-card .signed-contract-sponsor-visibility { grid-column:1/-1; margin:0; }
+.contract-document-card .signed-contract-sponsor-ready { align-items:center; cursor:default; }
+.contract-document-card .signed-contract-sponsor-ready svg { flex:none; margin-top:1px; color:#25845f; }
 .signed-contract-file { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:14px; padding:13px 14px; border:1px solid #e9edf0; border-radius:9px; background:#fafbfc; }
 .signed-contract-file > div { display:grid; gap:4px; min-width:0; }
 .signed-contract-actions { display:flex!important; align-items:center; flex-wrap:wrap; gap:8px!important; }

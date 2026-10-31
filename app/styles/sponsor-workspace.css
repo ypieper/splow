@@ -356,6 +356,12 @@
 .sponsor-portal-contract span, .sponsor-portal-contract small { color: #7b8792; font-size: 11px; }
 .sponsor-portal-contract-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .sponsor-portal-contract-actions .btn { min-height: 38px; }
+.sponsor-portal-signed-contract { display:flex; align-items:center; gap:12px; width:100%; padding:14px 16px; border:1px solid #cfe7dc; border-radius:12px; background:#f3fbf6; }
+.sponsor-portal-contract .sponsor-portal-signed-contract-icon { display:grid; flex:none; place-items:center; width:38px; height:38px; border-radius:50%; background:#dff3e9; color:#25845f; }
+.sponsor-portal-signed-contract-copy { display:grid; gap:4px; min-width:0; }
+.sponsor-portal-signed-contract-copy b { color:#29483a; font-size:13px; }
+.sponsor-portal-signed-contract-copy small,.sponsor-portal-contract .sponsor-portal-signed-contract-pending { color:#668273; font-size:11px; }
+.sponsor-portal-signed-contract > .btn { flex:none; margin-left:auto; }
 .sponsor-portal-contract-complete { display:flex; align-items:center; gap:6px; color:#28734f; font-size:10px; font-weight:700; }
 .sponsor-portal-contract-complete svg { flex:none; }
 .sponsor-portal-wait { max-width: 220px; text-align: right; }
@@ -421,6 +427,8 @@
   .sponsor-portal-signature-steps { grid-template-columns:minmax(0,1fr); }
   .sponsor-portal-contract-actions { justify-content: flex-start; }
   .sponsor-portal-contract-actions .btn { width:100%; justify-content:center; }
+  .sponsor-portal-signed-contract { align-items:flex-start; flex-wrap:wrap; }
+  .sponsor-portal-signed-contract > .btn { width:100%; margin-left:0; justify-content:center; }
   .sponsor-portal-wait { text-align: left; }
   .sponsor-portal-event { padding: 17px; }
   .sponsor-portal-welcome-action { justify-content:center; }

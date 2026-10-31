@@ -31,7 +31,7 @@ export async function GET(request: Request, context: Context) {
       .eq("id", contractId)
       .maybeSingle();
     if (contractError) throw contractError;
-    if (!contract || (!contract.signed_at && contract.signature_status === "draft") || !contract.signing_document_id) {
+    if (!contract || (!contract.signed_at && contract.signature_status === "draft") || (!downloadSignedVersion && !contract.signing_document_id)) {
       return NextResponse.json({ error: "Für diesen Vertrag ist keine Zeichnungs-PDF freigegeben." }, { status: 404 });
     }
 
@@ -48,31 +48,43 @@ export async function GET(request: Request, context: Context) {
       return NextResponse.json({ error: "Der Vertrag ist noch nicht vollständig gezeichnet." }, { status: 409 });
     }
 
-    const { data: document, error: documentError } = await admin
-      .from("contract_documents")
-      .select("contract_id, storage_path, file_name, content_type")
-      .eq("id", contract.signing_document_id)
-      .eq("contract_id", contract.id)
-      .maybeSingle();
-    if (documentError) throw documentError;
-    if (!document) return NextResponse.json({ error: "Die freigegebene Vertragsdatei wurde nicht gefunden." }, { status: 404 });
-
-    let storagePath = document.storage_path;
-    let fileName = document.file_name || "Vertrag.pdf";
-    let contentType = document.content_type || "application/pdf";
+    let storagePath = "";
+    let fileName = "Vertrag.pdf";
+    let contentType = "application/pdf";
     if (downloadSignedVersion) {
-      const { data: signedDocument, error: signedDocumentError } = await admin.from("sponsor_documents")
+      const { data: signedContract, error: signedContractError } = await admin.from("contract_documents")
         .select("storage_path, file_name, content_type")
-        .eq("event_id", contract.event_id).eq("sponsor_id", contract.sponsor_id).eq("contract_id", contract.id)
-        .eq("document_role", "signed_contract").order("uploaded_at", { ascending: false }).limit(1).maybeSingle();
-      if (signedDocumentError) throw signedDocumentError;
-      if (signedDocument) {
-        storagePath = signedDocument.storage_path;
-        fileName = signedDocument.file_name || fileName;
-        contentType = signedDocument.content_type || contentType;
-      } else if (!/_gezeichnet\.pdf$/i.test(fileName)) {
-        fileName = fileName.replace(/\.pdf$/i, "") + "_gezeichnet.pdf";
+        .eq("contract_id", contract.id).eq("kind", "signed").maybeSingle();
+      if (signedContractError) throw signedContractError;
+      if (signedContract) {
+        storagePath = signedContract.storage_path;
+        fileName = signedContract.file_name || fileName;
+        contentType = signedContract.content_type || contentType;
+      } else {
+        const { data: signedDocument, error: signedDocumentError } = await admin.from("sponsor_documents")
+          .select("storage_path, file_name, content_type")
+          .eq("event_id", contract.event_id).eq("sponsor_id", contract.sponsor_id).eq("contract_id", contract.id)
+          .eq("document_role", "signed_contract").order("uploaded_at", { ascending: false }).limit(1).maybeSingle();
+        if (signedDocumentError) throw signedDocumentError;
+        if (signedDocument) {
+          storagePath = signedDocument.storage_path;
+          fileName = signedDocument.file_name || fileName;
+          contentType = signedDocument.content_type || contentType;
+        }
       }
+      if (!storagePath) return NextResponse.json({ error: "Die endgültig gezeichnete PDF wird noch bereitgestellt. Bitte versuche es gleich erneut." }, { status: 409 });
+    } else {
+      const { data: document, error: documentError } = await admin
+        .from("contract_documents")
+        .select("contract_id, storage_path, file_name, content_type")
+        .eq("id", contract.signing_document_id!)
+        .eq("contract_id", contract.id)
+        .maybeSingle();
+      if (documentError) throw documentError;
+      if (!document) return NextResponse.json({ error: "Die freigegebene Vertragsdatei wurde nicht gefunden." }, { status: 404 });
+      storagePath = document.storage_path;
+      fileName = document.file_name || fileName;
+      contentType = document.content_type || contentType;
     }
 
     const { data: file, error: downloadError } = await admin.storage.from(bucket).download(storagePath);

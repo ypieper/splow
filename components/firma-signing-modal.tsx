@@ -98,7 +98,7 @@ export function FirmaSigningModal({ contractId, onClose, onCompleted }: { contra
   };
 
   return <Modal labelledBy="firma-signing-title" describedBy="firma-signing-description" onClose={closeAndSync} className="create-modal firma-signing-modal">
-    <header><div><h2 id="firma-signing-title">Vertrag bei Firma zeichnen</h2><p id="firma-signing-description">Die Signaturansicht bleibt in Splow geöffnet.</p></div><button className="btn" type="button" onClick={closeAndSync} aria-label="Signaturansicht schließen">Schließen</button></header>
+    <header><div><h2 id="firma-signing-title">Vertrag zeichnen</h2><p id="firma-signing-description">Die Signaturansicht bleibt in Splow geöffnet.</p></div><button className="btn" type="button" onClick={closeAndSync} aria-label="Signaturansicht schließen">Schließen</button></header>
     {error ? <p role="alert">{error}</p> : url ? <iframe src={url} title="Firma Signaturansicht" allow="camera;microphone;clipboard-write" /> : <p role="status">Signaturansicht wird geladen …</p>}
     {statusNotice ? <p role="status">{statusNotice}</p> : statusConfirmed ? <p role="status">Unterschrift erfolgreich übernommen. Der Vertragsstatus wurde aktualisiert.</p> : completed && <p role="status">Unterschrift erfasst. Splow gleicht den Status mit Firma ab …</p>}
   </Modal>;
