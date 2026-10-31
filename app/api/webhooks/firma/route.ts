@@ -46,6 +46,7 @@ function normalizedPayload(event: FirmaWebhookPayload, requestId: string): Firma
 const supportedEvents = new Set([
   "signing_request.recipient.signed",
   "signing_request.completed",
+  "signing_request.certificate.generated",
   "signing_request.recipient.declined",
   "signing_request.declined",
   "signing_request.cancelled",

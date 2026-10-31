@@ -11,6 +11,7 @@ export type PortalContract = {
   signature_declined_at: string | null;
   signature_decline_reason: string | null;
   signing_url: string | null;
+  signed_document_available?: boolean;
 };
 
 export type PortalFile = { id: string; file_name: string; content_type: string; created_at: string; url: string };

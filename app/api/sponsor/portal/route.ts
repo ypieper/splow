@@ -246,6 +246,18 @@ export async function GET(request: Request) {
       ...contract,
       signature_status: contract.signed_at ? "signed" : contract.signature_status,
     }));
+    const signedContractIds = contracts.filter((contract) => contract.signature_status === "signed").map((contract) => contract.id);
+    const signedDocumentContractIds = new Set<string>();
+    if (signedContractIds.length) {
+      const [signedRows, legacySignedRows] = await Promise.all([
+        admin.from("contract_documents").select("contract_id").eq("kind", "signed").in("contract_id", signedContractIds),
+        admin.from("sponsor_documents").select("contract_id").eq("document_role", "signed_contract").in("contract_id", signedContractIds),
+      ]);
+      if (signedRows.error || legacySignedRows.error) throw signedRows.error ?? legacySignedRows.error;
+      for (const row of [...(signedRows.data ?? []), ...(legacySignedRows.data ?? [])]) {
+        if (row.contract_id) signedDocumentContractIds.add(row.contract_id);
+      }
+    }
     const docIds = contracts.flatMap((contract) => contract.signing_document_id ? [contract.signing_document_id] : []);
     const documentsById = new Map<string, { contract_id: string }>();
     if (docIds.length) {
@@ -300,6 +312,7 @@ export async function GET(request: Request) {
         benefits: benefitsWithTasks.filter((benefit) => benefit.event_id === event.id && benefit.sponsor_id === assignment.sponsor_id),
         contracts: contracts.filter((contract) => contract.event_id === event.id && contract.sponsor_id === assignment.sponsor_id).map((contract) => ({
           ...contract,
+          signed_document_available: signedDocumentContractIds.has(contract.id),
           sponsor_name: sponsors.find((sponsor) => sponsor.id === contract.sponsor_id)?.name ?? "Sponsor",
           signing_url: contract.signing_document_id && documentsById.get(contract.signing_document_id)?.contract_id === contract.id
             ? `/api/sponsor/contracts/${contract.id}/document`

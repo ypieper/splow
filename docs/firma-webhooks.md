@@ -6,6 +6,8 @@
 
 Wenn die Hintergrundverarbeitung fehlschlägt, bleibt der Auftrag mit Fehler, Versuchszahl und nächstem Ausführungszeitpunkt in der Queue. Nach fünf fehlgeschlagenen Verarbeitungsversuchen wird er als `failed` markiert. Payloads werden nach Abschluss oder nach dem letzten Fehlversuch gelöscht; Ereignis- und Request-ID bleiben zur Deduplizierung erhalten. Eine erneute Zustellung von Firma füllt einen fehlgeschlagenen Auftrag neu und setzt seine Versuche zurück.
 
+Für den finalen signierten PDF-Download muss Firma das Ereignis `signing_request.certificate.generated` an `/api/webhooks/firma` senden. `signing_request.completed` meldet zwar, dass alle Personen fertig gezeichnet haben, das Abschlusszertifikat kann aber erst danach bereitgestellt werden. Splow speichert deshalb die finale PDF erst beim Zertifikatsereignis.
+
 Der Worker `GET /api/cron/firma-webhooks` verarbeitet fällige Aufträge. Er benötigt `Authorization: Bearer <CRON_SECRET>` und gibt keine Job-Payloads zurück. Datenbanktabelle und Funktionen sind für `service_role` reserviert; normale Nutzer erhalten keinen Zugriff.
 
 ## Vercel-Konfiguration

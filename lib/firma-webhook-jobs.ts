@@ -40,11 +40,12 @@ async function saveFirmaPdf(
   contract: { id: string; signing_request_id: string },
   source: { file_name: string; storage_path: string },
   organizationId: string,
+  refreshExisting = false,
 ) {
   const { data: existing, error: existingError } = await admin.from("contract_documents")
-    .select("id").eq("contract_id", contract.id).eq("kind", "signed").maybeSingle();
+    .select("id, storage_path").eq("contract_id", contract.id).eq("kind", "signed").maybeSingle();
   if (existingError) throw existingError;
-  if (existing?.id) {
+  if (existing?.id && !refreshExisting) {
     const { error } = await admin.from("contracts").update({ signing_document_id: existing.id })
       .eq("id", contract.id).eq("signature_status", "signed");
     if (error) throw error;
@@ -52,11 +53,27 @@ async function saveFirmaPdf(
   }
 
   const signedPdf = await downloadFirmaSignedPdf(contract.signing_request_id);
-  const baseName = source.file_name.replace(/\.pdf$/i, "");
+  const baseName = source.file_name.replace(/(?:_gezeichnet)+\.pdf$/i, "").replace(/\.pdf$/i, "");
   const fileName = `${baseName}_gezeichnet.pdf`;
   const storagePath = `${organizationId}/contracts/${contract.id}/signed-firma-${randomUUID()}-${fileName.replace(/[^a-zA-Z0-9._-]+/g, "-")}`;
   const { error: uploadError } = await admin.storage.from("sponsorproof-files").upload(storagePath, signedPdf, { contentType: "application/pdf", upsert: false });
   if (uploadError) throw uploadError;
+  if (existing?.id) {
+    const { error: replaceError } = await admin.from("contract_documents").update({
+      storage_path: storagePath,
+      file_name: fileName,
+      content_type: "application/pdf",
+    }).eq("id", existing.id);
+    if (replaceError) {
+      await admin.storage.from("sponsorproof-files").remove([storagePath]);
+      throw replaceError;
+    }
+    const { error: pointerError } = await admin.from("contracts").update({ signing_document_id: existing.id })
+      .eq("id", contract.id).eq("signature_status", "signed");
+    if (pointerError) throw pointerError;
+    if (existing.storage_path) await admin.storage.from("sponsorproof-files").remove([existing.storage_path]);
+    return;
+  }
   const { data: inserted, error: insertError } = await admin.from("contract_documents").insert({
     organization_id: organizationId,
     contract_id: contract.id,
@@ -115,11 +132,12 @@ async function processFirmaWebhookEvent(admin: ReturnType<typeof createAdminClie
 
   let recipients = event.data?.recipients ?? [];
   if (event.data?.recipient) recipients = [...recipients, event.data.recipient];
-  if (["signing_request.recipient.declined", "signing_request.declined"].includes(job.event_type)) {
+  if (["signing_request.recipient.declined", "signing_request.declined", "signing_request.certificate.generated"].includes(job.event_type)
+    || (job.event_type === "signing_request.completed" && recipients.length === 0)) {
     const users = await getFirmaSigningUsers(requestId);
     recipients = [...recipients, ...users];
   }
-  if (job.event_type === "signing_request.completed" && recipients.length === 0) {
+  if (["signing_request.completed", "signing_request.certificate.generated"].includes(job.event_type) && recipients.length === 0) {
     recipients = [
       { order: 1, designation: "Signer", signed_at: event.data?.signing_request?.completed_at },
       { order: 2, designation: "Signer", signed_at: event.data?.signing_request?.completed_at },
@@ -164,7 +182,7 @@ async function processFirmaWebhookEvent(admin: ReturnType<typeof createAdminClie
     if (error) throw error;
   }
 
-  if (job.event_type === "signing_request.completed") {
+  if (job.event_type === "signing_request.certificate.generated") {
     const [{ data: currentContract, error: currentError }, { data: eventData, error: currentEventError }] = await Promise.all([
       admin.from("contracts").select("id, event_id, signature_status, signing_document_id").eq("id", contract.id).maybeSingle(),
       admin.from("events").select("organization_id").eq("id", contract.event_id).maybeSingle(),
@@ -178,7 +196,7 @@ async function processFirmaWebhookEvent(admin: ReturnType<typeof createAdminClie
         .select("file_name, storage_path").eq("id", currentContract.signing_document_id).maybeSingle();
       if (sourceError) throw sourceError;
       if (!source) throw new Error("Die ursprüngliche Vertrags-PDF wurde nicht gefunden.");
-      await saveFirmaPdf(admin, { id: currentContract.id, signing_request_id: requestId }, source, eventData.organization_id);
+      await saveFirmaPdf(admin, { id: currentContract.id, signing_request_id: requestId }, source, eventData.organization_id, true);
     }
   }
 }
