@@ -1,16 +1,25 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { after, NextResponse } from "next/server";
-import { downloadFirmaSignedPdf } from "@/lib/firma-signing";
+import { downloadFirmaSignedPdf, getFirmaSigningUsers } from "@/lib/firma-signing";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-type FirmaRecipientEvent = { order?: number; designation?: string; signed_at?: string | null };
+type FirmaRecipientEvent = {
+  email?: string;
+  order?: number;
+  designation?: string;
+  signed_at?: string | null;
+  finished_on?: string | null;
+  declined_on?: string | null;
+  decline_reason?: string | null;
+};
 type FirmaEvent = {
   id?: string;
   type?: string;
+  created_at?: string;
   data?: {
-    signing_request?: { id?: string; completed_at?: string | null };
+    signing_request?: { id?: string; completed_at?: string | null; cancelled_at?: string | null };
     signing_request_id?: string;
     recipient?: FirmaRecipientEvent;
     recipients?: FirmaRecipientEvent[];
@@ -83,7 +92,7 @@ export async function POST(request: Request) {
   try { event = JSON.parse(rawBody) as FirmaEvent; }
   catch { return NextResponse.json({ error: "Ungültiges Webhook-Format." }, { status: 400 }); }
   if (event.type === "webhook.test" || !event.id) return NextResponse.json({ received: true });
-  if (!["signing_request.recipient.signed", "signing_request.completed"].includes(event.type ?? "")) return NextResponse.json({ received: true });
+  if (!["signing_request.recipient.signed", "signing_request.completed", "signing_request.recipient.declined", "signing_request.declined", "signing_request.cancelled"].includes(event.type ?? "")) return NextResponse.json({ received: true });
 
   try {
     const requestId = event.data?.signing_request?.id ?? event.data?.signing_request_id;
@@ -94,20 +103,66 @@ export async function POST(request: Request) {
       .eq("signing_provider", "firma").eq("signing_request_id", requestId).maybeSingle();
     if (contractError) throw contractError;
     if (!contract || contract.signature_status === "draft") return NextResponse.json({ received: true });
+    const [{ data: event, error: eventError }, { data: sponsor, error: sponsorError }] = await Promise.all([
+      admin.from("events").select("contact_email, organization_id").eq("id", contract.event_id).maybeSingle(),
+      admin.from("sponsors").select("email").eq("id", contract.sponsor_id).maybeSingle(),
+    ]);
+    if (eventError || sponsorError) throw eventError ?? sponsorError;
+    const { data: owner, error: ownerError } = event?.organization_id && !event.contact_email
+      ? await admin.from("organization_members").select("email").eq("organization_id", event.organization_id).eq("role", "owner").limit(1).maybeSingle()
+      : { data: null, error: null };
+    if (ownerError) throw ownerError;
+    const sponsorEmail = sponsor?.email?.trim().toLowerCase();
+    const organizerEmail = (event?.contact_email || owner?.email || "").trim().toLowerCase();
+    const recipientRole = (recipient: FirmaRecipientEvent) => {
+      const email = recipient.email?.trim().toLowerCase();
+      return recipient.order === 1 || (email && email === sponsorEmail)
+        ? "sponsor"
+        : recipient.order === 2 || (email && email === organizerEmail) ? "organizer" : null;
+    };
     let recipients = event.data?.recipients ?? [];
-    if (event.type === "signing_request.recipient.signed" && event.data?.recipient) recipients = [...recipients, event.data.recipient];
+    if (event.data?.recipient) recipients = [...recipients, event.data.recipient];
+    if (["signing_request.recipient.declined", "signing_request.declined"].includes(event.type ?? "")) {
+      const users = await getFirmaSigningUsers(requestId);
+      recipients = [...recipients, ...users];
+    }
     if (event.type === "signing_request.completed" && recipients.length === 0) {
       recipients = [{ order: 1, designation: "Signer", signed_at: event.data?.signing_request?.completed_at }, { order: 2, designation: "Signer", signed_at: event.data?.signing_request?.completed_at }];
     }
-    for (const recipient of recipients.filter((item) => item.designation?.toLowerCase() === "signer" && item.signed_at).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
-      const signerRole = recipient.order === 1 ? "sponsor" : recipient.order === 2 ? "organizer" : null;
+    for (const recipient of recipients.filter((item) => item.designation?.toLowerCase() === "signer" && (item.signed_at || item.finished_on)).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
+      const signerRole = recipientRole(recipient);
       if (!signerRole) continue;
       const { error: recordError } = await admin.rpc("record_contract_signature", {
         target_contract_id: contract.id,
         signer_role: signerRole,
-        occurred_at: recipient.signed_at,
+        occurred_at: recipient.signed_at || recipient.finished_on,
       });
       if (recordError) throw recordError;
+    }
+
+    if (["signing_request.recipient.declined", "signing_request.declined"].includes(event.type ?? "")) {
+      const recipient = recipients.find((item) => item.declined_on || item.decline_reason)
+        ?? (event.type === "signing_request.recipient.declined" ? event.data?.recipient : undefined);
+      const signerRole = recipient ? recipientRole(recipient) : null;
+      if (signerRole) {
+        const { error: declineError } = await admin.rpc("record_contract_signature_decline", {
+          target_contract_id: contract.id,
+          provider_request_id: requestId,
+          signer_role: signerRole,
+          occurred_at: recipient?.declined_on || event.created_at,
+          decline_reason: recipient?.decline_reason ?? null,
+        });
+        if (declineError) throw declineError;
+      }
+    }
+
+    if (event.type === "signing_request.cancelled") {
+      const { error: cancellationError } = await admin.rpc("record_contract_signing_cancellation", {
+        target_contract_id: contract.id,
+        provider_request_id: requestId,
+        occurred_at: event.data?.signing_request?.cancelled_at || event.created_at,
+      });
+      if (cancellationError) throw cancellationError;
     }
 
     if (event.type === "signing_request.completed") {

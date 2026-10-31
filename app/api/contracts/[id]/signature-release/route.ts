@@ -28,7 +28,7 @@ export async function POST(request: Request, context: Context) {
   try {
     const admin = createAdminClient();
     const { data: contract, error: contractError } = await admin.from("contracts")
-      .select("id, event_id, sponsor_id, signature_status")
+      .select("id, event_id, sponsor_id, signature_status, signature_new_version_required")
       .eq("id", contractId).maybeSingle();
     if (contractError || !contract) return NextResponse.json({ error: "Der Vertrag wurde nicht gefunden." }, { status: 404 });
 
@@ -36,6 +36,7 @@ export async function POST(request: Request, context: Context) {
     if (ownsError) throw ownsError;
     if (!ownsEvent) return NextResponse.json({ error: "Du hast keinen Zugriff auf diesen Vertrag." }, { status: 403 });
     if (contract.signature_status !== "draft") return NextResponse.json({ error: "Der Zeichnungsablauf wurde bereits gestartet." }, { status: 409 });
+    if (contract.signature_new_version_required) return NextResponse.json({ error: "Erstelle zuerst die überarbeitete Vertrags-PDF, bevor du sie erneut freigibst." }, { status: 409 });
 
     const signingDocumentId = clean(payload.signingDocumentId);
     const [{ data: enabled, error: entitlementError }, { data: document, error: documentError }] = await Promise.all([

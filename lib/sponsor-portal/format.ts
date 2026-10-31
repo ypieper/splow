@@ -2,6 +2,8 @@ import type { PortalContract } from "./types";
 
 export function statusLabel(status: PortalContract["signature_status"]) {
   if (status === "signed") return "Vollständig gezeichnet";
+  if (status === "declined") return "Abgelehnt";
+  if (status === "cancelled") return "Zeichnung abgebrochen";
   if (status === "pending_organizer") return "Wartet auf Veranstalter";
   if (status === "pending_sponsor") return "Deine Zeichnung steht aus";
   return "Noch nicht freigegeben";

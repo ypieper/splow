@@ -24,6 +24,10 @@ export async function saveContractDocument(contractId: string, kind: ContractDoc
     await supabase.storage.from(bucket).remove([path]);
     return { data: null, error: error ?? new Error("Vertragsdatei konnte nicht gespeichert werden.") };
   }
+  if (kind === "generated_pdf" || kind === "uploaded_pdf") {
+    const { error: versionError } = await supabase.from("contracts").update({ signature_new_version_required: false }).eq("id", contractId);
+    if (versionError) return { data: fromRow(data as DocumentRow), error: versionError };
+  }
   return { data: fromRow(data as DocumentRow), error: null };
 }
 

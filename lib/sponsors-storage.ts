@@ -37,12 +37,17 @@ export type ContractRow = {
   sponsor_signed_at?: string | null;
   organizer_signed_at?: string | null;
   signing_document_id?: string | null;
+  signature_declined_by?: "sponsor" | "organizer" | null;
+  signature_declined_at?: string | null;
+  signature_decline_reason?: string | null;
+  signature_new_version_required?: boolean;
+  signing_provider?: string | null;
 };
 
 export type SponsorRecord = { sponsor: Sponsor; contracts: SponsorContract[] };
 
 const sponsorColumns = "id, name, initials, sponsorship_value_cents, status, color, legal_form, street, street_number, postal_code, city, contact_first_name, contact_last_name, email, phone, vat_id, iban, bic, bank";
-const contractColumns = "id, event_id, sponsor_id, title, value_cents, gross_value_cents, status, signed_at, signature_status, sponsor_signed_at, organizer_signed_at, signing_document_id";
+const contractColumns = "id, event_id, sponsor_id, title, value_cents, gross_value_cents, status, signed_at, signature_status, sponsor_signed_at, organizer_signed_at, signing_document_id, signing_provider, signature_declined_by, signature_declined_at, signature_decline_reason, signature_new_version_required";
 
 export function formatCents(cents: number) {
   return `${new Intl.NumberFormat("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(cents / 100)} €`;
@@ -103,6 +108,11 @@ export function contractFromRow(row: ContractRow): SponsorContract {
     sponsorSignedAt: row.sponsor_signed_at ?? null,
     organizerSignedAt: row.organizer_signed_at ?? null,
     signingDocumentId: row.signing_document_id ?? null,
+    signatureProvider: row.signing_provider ?? null,
+    signatureDeclinedBy: row.signature_declined_by ?? null,
+    signatureDeclinedAt: row.signature_declined_at ?? null,
+    signatureDeclineReason: row.signature_decline_reason ?? null,
+    signatureNewVersionRequired: row.signature_new_version_required ?? false,
   };
 }
 

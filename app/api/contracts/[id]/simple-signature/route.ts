@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { getFirmaSigningUsers } from "@/lib/firma-signing";
+import { cancelFirmaSigningRequest, getFirmaSigningUsers } from "@/lib/firma-signing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,7 +18,7 @@ export async function GET(_request: Request, context: Context) {
   try {
     const admin = createAdminClient();
     const { data: contract, error: contractError } = await admin.from("contracts")
-      .select("id, event_id, sponsor_id, signature_status, signed_at, sponsor_signed_at, organizer_signed_at, signing_provider, signing_request_id")
+      .select("id, event_id, sponsor_id, signature_status, signed_at, sponsor_signed_at, organizer_signed_at, signing_provider, signing_request_id, signature_declined_by, signature_declined_at, signature_decline_reason, signature_cancelled_at")
       .eq("id", id).maybeSingle();
     if (contractError || !contract) return NextResponse.json({ error: "Der Vertrag wurde nicht gefunden." }, { status: 404 });
 
@@ -59,7 +59,7 @@ export async function GET(_request: Request, context: Context) {
         const role = recipient.order === 1 || (email && email === sponsorEmail)
           ? "sponsor"
           : recipient.order === 2 || (email && email === eventEmail) ? "organizer" : null;
-        return { role, signedAt: recipient.signed_at };
+        return { role, signedAt: recipient.signed_at || recipient.finished_on };
       }).filter((recipient): recipient is { role: "sponsor" | "organizer"; signedAt: string } => Boolean(recipient.role && recipient.signedAt))
         .sort((left, right) => left.role === right.role ? 0 : left.role === "sponsor" ? -1 : 1);
 
@@ -72,8 +72,24 @@ export async function GET(_request: Request, context: Context) {
         if (recordError) throw recordError;
       }
 
+      const declinedRecipient = users.find((recipient) => recipient.declined_on);
+      const declinedEmail = declinedRecipient?.email?.trim().toLowerCase();
+      const declinedRole = declinedRecipient?.order === 1 || (declinedEmail && declinedEmail === sponsorEmail)
+        ? "sponsor"
+        : declinedRecipient?.order === 2 || (declinedEmail && declinedEmail === eventEmail) ? "organizer" : null;
+      if (declinedRecipient?.declined_on && declinedRole) {
+        const { error: declineError } = await admin.rpc("record_contract_signature_decline", {
+          target_contract_id: contract.id,
+          provider_request_id: contract.signing_request_id,
+          signer_role: declinedRole,
+          occurred_at: declinedRecipient.declined_on,
+          decline_reason: declinedRecipient.decline_reason ?? null,
+        });
+        if (declineError) throw declineError;
+      }
+
       const { data: refreshedContract, error: refreshError } = await admin.from("contracts")
-        .select("id, event_id, sponsor_id, signature_status, signed_at, sponsor_signed_at, organizer_signed_at, signing_provider, signing_request_id")
+        .select("id, event_id, sponsor_id, signature_status, signed_at, sponsor_signed_at, organizer_signed_at, signing_provider, signing_request_id, signature_declined_by, signature_declined_at, signature_decline_reason, signature_cancelled_at")
         .eq("id", contract.id).maybeSingle();
       if (refreshError) throw refreshError;
       if (refreshedContract) currentContract = refreshedContract;
@@ -99,6 +115,9 @@ export async function GET(_request: Request, context: Context) {
       signatureStatus: currentContract.signed_at ? "signed" : currentContract.signature_status,
       sponsorSignedAt: currentContract.sponsor_signed_at,
       organizerSignedAt: currentContract.organizer_signed_at,
+      signatureDeclinedBy: currentContract.signature_declined_by,
+      signatureDeclinedAt: currentContract.signature_declined_at,
+      signatureDeclineReason: currentContract.signature_decline_reason,
       signingUrl,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
@@ -117,9 +136,10 @@ export async function POST(_request: Request, context: Context) {
   try {
     const admin = createAdminClient();
     const { data: contract, error: contractError } = await admin.from("contracts")
-      .select("id, event_id, sponsor_id, signature_status, signing_document_id, signed_at, signing_provider")
+      .select("id, event_id, sponsor_id, signature_status, signing_document_id, signed_at, signing_provider, signature_new_version_required")
       .eq("id", id).maybeSingle();
     if (contractError || !contract) return NextResponse.json({ error: "Der Vertrag wurde nicht gefunden." }, { status: 404 });
+    if (contract.signature_new_version_required) return NextResponse.json({ error: "Erstelle zuerst die überarbeitete Vertrags-PDF, bevor du sie erneut freigibst." }, { status: 409 });
     const { data: signatureEnabled, error: entitlementError } = await admin.rpc("event_signature_addon_enabled", { target_event_id: contract.event_id });
     if (entitlementError) throw entitlementError;
     if (signatureEnabled !== true) return NextResponse.json({ error: "Für dieses Event ist noch kein Vertragspaket freigeschaltet." }, { status: 403 });
@@ -224,11 +244,21 @@ export async function DELETE(_request: Request, context: Context) {
     const { data: ownsEvent, error: ownsError } = await supabase.rpc("owns_event", { target_event_id: contract.event_id });
     if (ownsError) throw ownsError;
     if (!ownsEvent) return NextResponse.json({ error: "Du hast keinen Zugriff auf diesen Vertrag." }, { status: 403 });
+    if (contract.signing_provider === "firma" && contract.signing_request_id && ["pending_sponsor", "pending_organizer"].includes(contract.signature_status)) {
+      await cancelFirmaSigningRequest(contract.signing_request_id);
+      const { error: cancellationError } = await admin.rpc("record_contract_signing_cancellation", {
+        target_contract_id: contract.id,
+        provider_request_id: contract.signing_request_id,
+        occurred_at: new Date().toISOString(),
+      });
+      if (cancellationError) throw cancellationError;
+      return NextResponse.json({ ok: true, cancelled: true }, { headers: { "Cache-Control": "no-store" } });
+    }
     if (contract.signature_status !== "pending_sponsor" || contract.sponsor_signed_at || contract.signed_at) {
-      return NextResponse.json({ error: "Die Freigabe kann nur zurückgenommen werden, solange der Sponsor noch nicht gezeichnet hat." }, { status: 409 });
+      return NextResponse.json({ error: "Die Freigabe kann nur zurückgenommen werden, solange noch keine Unterschrift vorliegt." }, { status: 409 });
     }
     if (contract.signing_provider || contract.signing_request_id) {
-      return NextResponse.json({ error: "Diese Zeichnungsanfrage muss beim Signaturanbieter beendet werden." }, { status: 409 });
+      return NextResponse.json({ error: "Diese Zeichnungsanfrage kann nicht zurückgenommen werden." }, { status: 409 });
     }
 
     const { data: revoked, error: revokeError } = await admin.from("contracts").update({

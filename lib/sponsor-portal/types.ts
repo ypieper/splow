@@ -3,10 +3,13 @@ export type PortalContract = {
   title: string;
   sponsor_name: string;
   value_cents: number;
-  signature_status: "draft" | "pending_sponsor" | "pending_organizer" | "signed";
+  signature_status: "draft" | "pending_sponsor" | "pending_organizer" | "signed" | "declined" | "cancelled";
   sponsor_signed_at: string | null;
   organizer_signed_at: string | null;
   signed_at: string | null;
+  signature_declined_by: "sponsor" | "organizer" | null;
+  signature_declined_at: string | null;
+  signature_decline_reason: string | null;
   signing_url: string | null;
 };
 

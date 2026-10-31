@@ -9,7 +9,16 @@ export type FirmaRecipient = {
   order: number;
 };
 
-export type FirmaUser = { id: string; email?: string; order?: number; signed_at?: string | null };
+export type FirmaUser = {
+  id: string;
+  email?: string;
+  order?: number;
+  designation?: string;
+  signed_at?: string | null;
+  finished_on?: string | null;
+  declined_on?: string | null;
+  decline_reason?: string | null;
+};
 
 function apiKey() {
   const key = process.env.FIRMA_API_KEY?.trim();
@@ -72,6 +81,10 @@ export async function getFirmaSigningUsers(requestId: string): Promise<FirmaUser
   const result = await response.json() as FirmaUser[] | { users?: FirmaUser[]; results?: FirmaUser[]; data?: FirmaUser[] };
   if (Array.isArray(result)) return result;
   return result.users ?? result.results ?? result.data ?? [];
+}
+
+export async function cancelFirmaSigningRequest(requestId: string) {
+  await firmaRequest(`/signing-requests/${encodeURIComponent(requestId)}/cancel`, { method: "POST" });
 }
 
 export async function downloadFirmaSignedPdf(requestId: string) {
