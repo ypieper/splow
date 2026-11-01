@@ -16,6 +16,7 @@ export type StoredBenefit = {
   status: string;
   evidence: string;
   completionRequired: boolean;
+  templateId?: string | null;
   dueAt?: string;
 };
 
@@ -35,6 +36,7 @@ type BenefitRow = {
   status: string;
   evidence_summary: string;
   completion_required?: boolean | null;
+  benefit_template_id?: string | null;
   due_at: string | null;
 };
 
@@ -71,6 +73,7 @@ export function benefitFromRow(row: BenefitRow): StoredBenefit {
     status: row.status,
     evidence: row.evidence_summary,
     completionRequired: row.completion_required !== false,
+    templateId: row.benefit_template_id ?? null,
     dueAt: row.due_at ?? undefined,
   };
 }
@@ -91,12 +94,13 @@ function rowFromInput(benefit: BenefitInput) {
     status: benefit.status,
     evidence_summary: benefit.evidence,
     completion_required: benefit.completionRequired !== false,
+    benefit_template_id: benefit.templateId ?? null,
     due_at: benefit.dueAt ?? null,
   };
 }
 
 export async function fetchStoredBenefits(eventId?: string) {
-  let query = createClient().from("benefits").select("id, event_id, sponsor_id, contract_id, title, benefit_type, material_logistics, category, description, detail, quantity, tasks_per_unit, status, evidence_summary, completion_required, due_at").order("created_at", { ascending: true });
+  let query = createClient().from("benefits").select("id, event_id, sponsor_id, contract_id, title, benefit_type, material_logistics, category, description, detail, quantity, tasks_per_unit, status, evidence_summary, completion_required, due_at, benefit_template_id").order("created_at", { ascending: true });
   if (eventId) query = query.eq("event_id", eventId);
   const { data, error } = await query;
   return { data: (data ?? []).map((row) => benefitFromRow(row as BenefitRow)), error };
@@ -107,7 +111,7 @@ export async function createStoredBenefits(benefits: BenefitInput[]) {
   const { data, error } = await createClient()
     .from("benefits")
     .insert(benefits.map(rowFromInput))
-    .select("id, event_id, sponsor_id, contract_id, title, benefit_type, material_logistics, category, description, detail, quantity, tasks_per_unit, status, evidence_summary, completion_required, due_at");
+    .select("id, event_id, sponsor_id, contract_id, title, benefit_type, material_logistics, category, description, detail, quantity, tasks_per_unit, status, evidence_summary, completion_required, due_at, benefit_template_id");
   return { data: (data ?? []).map((row) => benefitFromRow(row as BenefitRow)), error };
 }
 
@@ -118,7 +122,7 @@ export async function syncLegacyBenefitsToSupabase(legacyBenefits: LegacyBenefit
   const supabase = createClient();
   const eventIds = [...new Set(legacy.map((benefit) => benefit.eventId))];
   const [benefitResult, contractResult] = await Promise.all([
-    supabase.from("benefits").select("id, event_id, sponsor_id, contract_id, title, benefit_type, material_logistics, category, description, detail, quantity, tasks_per_unit, status, evidence_summary, completion_required, due_at").in("event_id", eventIds),
+    supabase.from("benefits").select("id, event_id, sponsor_id, contract_id, title, benefit_type, material_logistics, category, description, detail, quantity, tasks_per_unit, status, evidence_summary, completion_required, due_at, benefit_template_id").in("event_id", eventIds),
     supabase.from("contracts").select("id, event_id, sponsor_id").in("event_id", eventIds),
   ]);
   if (benefitResult.error) return { data: [] as StoredBenefit[], error: benefitResult.error, imported: 0 };

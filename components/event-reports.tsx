@@ -5,7 +5,6 @@ import { Modal } from "@/components/modal";
 import { useEventEntitlements } from "@/components/event-entitlements";
 import { EmptyState, Icon, Progress, SplowLogo, Status } from "@/components/ui";
 import { fetchStoredBenefits } from "@/lib/benefits-storage";
-import { createCompletionReportPdf } from "@/lib/completion-report-pdf";
 import { fetchContractReportStates, saveContractReportState } from "@/lib/contract-documents-storage";
 import { formatContractValue, parseContractValue } from "@/lib/event-contract-values";
 import { formatEventReportMetricValue } from "@/lib/event-report-metric-format";
@@ -35,7 +34,8 @@ export function EventReports({ eventId, eventTitle, organizerLogoUrl, sponsors, 
   contracts: SponsorContract[];
   benefits: { id?: string; title: string; sponsorId: string; eventId: string }[];
 }) {
-  const { ensureFeature } = useEventEntitlements();
+  const { ensureFeature, hasFeature, requestUpgrade } = useEventEntitlements();
+  const [hasReportAccess, setHasReportAccess] = useState<boolean | null>(null);
   const [reports, setReports] = useState<SponsorReport[]>([]);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -54,6 +54,16 @@ export function EventReports({ eventId, eventTitle, organizerLogoUrl, sponsors, 
 
   useEffect(() => {
     let cancelled = false;
+    setHasReportAccess(null);
+    void hasFeature(eventId, "reports_tab").then((allowed) => {
+      if (!cancelled) setHasReportAccess(allowed);
+    });
+    return () => { cancelled = true; };
+  }, [eventId, hasFeature]);
+
+  useEffect(() => {
+    if (hasReportAccess !== true) return;
+    let cancelled = false;
     setEventMetricsLoading(true);
     setEventMetricsError("");
     void fetchEventReportMetrics(eventId).then(({ data, error }) => {
@@ -69,7 +79,7 @@ export function EventReports({ eventId, eventTitle, organizerLogoUrl, sponsors, 
       if (!cancelled) setEventMetricsLoading(false);
     });
     return () => { cancelled = true; };
-  }, [eventId]);
+  }, [eventId, hasReportAccess]);
 
   function addEventMetric() {
     setEventMetrics((current) => [...current, { id: `draft-${crypto.randomUUID()}`, name: "", value: "", isNew: true, dirty: true }]);
@@ -123,6 +133,7 @@ export function EventReports({ eventId, eventTitle, organizerLogoUrl, sponsors, 
   }
 
   useEffect(() => {
+    if (hasReportAccess !== true) return;
     let cancelled = false;
     async function loadProgress() {
       setReady(false);
@@ -166,7 +177,7 @@ export function EventReports({ eventId, eventTitle, organizerLogoUrl, sponsors, 
     }
     void loadProgress();
     return () => { cancelled = true; };
-  }, [eventId, contracts, sponsors, benefits, retryKey]);
+  }, [eventId, contracts, sponsors, benefits, retryKey, hasReportAccess]);
 
   function downloadPdf(file: File) {
     const url = URL.createObjectURL(file);
@@ -180,13 +191,17 @@ export function EventReports({ eventId, eventTitle, organizerLogoUrl, sponsors, 
   }
 
   async function createPdf(report: SponsorReport) {
-    const file = await createCompletionReportPdf({
-      sponsorName: report.sponsor.name,
-      eventTitle,
-      contractValue: report.contract.value,
-      tasks: report.tasks,
-      organizerLogoUrl,
+    const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/reports`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contractId: report.contract.id }),
     });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      throw new Error(payload?.error || "Der Abschlussreport konnte nicht erstellt werden.");
+    }
+    const fileName = response.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/)?.[1] ?? "Splow-Abschlussreport.pdf";
+    const file = new File([await response.blob()], fileName, { type: "application/pdf" });
     const { error } = await saveContractReportState(report.contract.id, { generatedAt: new Date().toISOString() });
     if (!error) {
       window.dispatchEvent(new Event("sponso:event-timeline-updated"));
@@ -196,7 +211,7 @@ export function EventReports({ eventId, eventTitle, organizerLogoUrl, sponsors, 
 
   async function downloadReportPdf() {
     if (!selectedReport) return;
-    if (!(await ensureFeature(eventId, eventTitle, "reports"))) return;
+    if (!(await ensureFeature(eventId, eventTitle, "reports_tab"))) return;
     setReportAction("download");
     try {
       const { file, saved } = await createPdf(selectedReport);
@@ -213,7 +228,7 @@ export function EventReports({ eventId, eventTitle, organizerLogoUrl, sponsors, 
 
   async function sendReportToSponsor() {
     if (!selectedReport) return;
-    if (!(await ensureFeature(eventId, eventTitle, "reports"))) return;
+    if (!(await ensureFeature(eventId, eventTitle, "reports_tab"))) return;
     setReportAction("share");
     try {
       const report = selectedReport;
@@ -251,7 +266,7 @@ export function EventReports({ eventId, eventTitle, organizerLogoUrl, sponsors, 
   }
 
   async function updateReportSentStatus(report: SponsorReport, sent: boolean) {
-    if (!(await ensureFeature(eventId, eventTitle, "reports"))) return;
+    if (!(await ensureFeature(eventId, eventTitle, "reports_tab"))) return;
     setUpdatingReportId(report.contract.id);
     try {
       const { error } = await saveContractReportState(report.contract.id, { sentAt: sent ? new Date().toISOString() : null });
@@ -267,6 +282,9 @@ export function EventReports({ eventId, eventTitle, organizerLogoUrl, sponsors, 
       setUpdatingReportId(null);
     }
   }
+
+  if (hasReportAccess === null) return <section className="panel"><p className="task-empty" aria-busy="true">Paketberechtigung wird geprüft …</p></section>;
+  if (!hasReportAccess) return <section className="panel event-reports-paywall"><div className="table-head"><div><div className="eyebrow">BUSINESS</div><h2>Reports</h2><p className="subtitle">Erweiterte Auswertungen und automatische Abschlussberichte sind im Business-Paket enthalten.</p></div><span className="event-plan-badge">Ab Business</span></div><p>Dieser Bereich ist für alle Events sichtbar. Die Reportdaten und Funktionen werden erst nach bestätigter Buchung des Business-Pakets freigeschaltet.</p><button className="btn btn-primary" type="button" onClick={() => requestUpgrade(eventId, eventTitle, "Reports und Abschlussberichte ab Business")}>Business ansehen</button></section>;
 
   return <>
     <section className="panel event-report-metrics-panel">

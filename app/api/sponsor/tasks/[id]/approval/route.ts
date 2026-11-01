@@ -18,10 +18,17 @@ export async function POST(request: Request, context: Context) {
   if (decision === "invalid") return NextResponse.json({ error: "Bitte wähle Freigeben oder Änderungen anfordern." }, { status: 400 });
   if (decision === "changes_requested" && !comment) return NextResponse.json({ error: "Bitte gib einen Kommentar zu den gewünschten Änderungen ein." }, { status: 400 });
 
+  const admin = createAdminClient();
+  const { data: task, error: taskError } = await admin.from("tasks").select("event_id").eq("id", id).maybeSingle();
+  if (taskError) return NextResponse.json({ error: "Die Aufgabe konnte nicht geladen werden." }, { status: 503 });
+  if (!task?.event_id) return NextResponse.json({ error: "Die Aufgabe wurde nicht gefunden." }, { status: 404 });
+  const { data: sponsorTaskEvidenceEnabled, error: featureError } = await admin.rpc("event_feature_enabled", { target_event_id: task.event_id, target_feature: "sponsor_task_evidence" });
+  if (featureError) return NextResponse.json({ error: "Die Paketberechtigung konnte nicht geprüft werden." }, { status: 503 });
+  if (sponsorTaskEvidenceEnabled !== true) return NextResponse.json({ error: "Sponsor-Aufgaben und Nachweise sind ab Professional verfügbar." }, { status: 403 });
+
   let deletedPaths: string[] = [];
   let error;
   try {
-    const admin = createAdminClient();
     const result = await admin.rpc("respond_to_sponsor_task", {
       target_task_id: id,
       target_user_id: user.id,

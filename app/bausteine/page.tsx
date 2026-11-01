@@ -4,6 +4,7 @@ import { Modal } from "@/components/modal";
 import { EmptyState, Icon, iconNames, PageHeading } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 type BenefitType = "monetary" | "in_kind";
@@ -68,6 +69,7 @@ export default function LibraryPage() {
   const [draft, setDraft] = useState(emptyDraft);
   const [message, setMessage] = useState("");
   const [libraryError, setLibraryError] = useState(false);
+  const [libraryLocked, setLibraryLocked] = useState(false);
   const [subtasksUnavailable, setSubtasksUnavailable] = useState(false);
   const [saving, setSaving] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
@@ -79,9 +81,20 @@ export default function LibraryPage() {
       try {
         let customItems: LibraryBlock[];
         if (isSupabaseConfigured) {
+          const supabase = createClient();
+          const { data: organizationId, error: organizationError } = await supabase.rpc("current_organization_id");
+          if (organizationError) throw organizationError;
+          const { data: libraryAllowed, error: featureError } = await supabase.rpc("organization_has_event_feature", {
+            target_organization_id: organizationId,
+            target_feature: "benefit_library",
+          });
+          if (featureError) throw featureError;
+          if (libraryAllowed !== true) {
+            if (active) setLibraryLocked(true);
+            return;
+          }
           if (!pendingLibraryLoad) {
             pendingLibraryLoad = (async () => {
-              const supabase = createClient();
               const { data: authData, error: authError } = await supabase.auth.getUser();
               if (authError || !authData.user) throw new Error("Bitte melde dich an, um deine Bausteine zu laden.");
 
@@ -321,6 +334,8 @@ export default function LibraryPage() {
       setMessage("Die Kategorie konnte nicht entfernt werden.");
     }
   }
+
+  if (libraryLocked) return <main className="content"><PageHeading eyebrow="VORLAGEN" title="Leistungsbausteine" subtitle="Die wiederverwendbare Leistungsbibliothek ist ab Professional verfügbar."/><section className="panel"><EmptyState title="Paket erforderlich" description="Buche Professional oder Business für mindestens ein Event deiner Organisation, um Leistungsbausteine zentral zu verwalten. Die Nutzung wird zusätzlich für jedes Event einzeln geprüft." action={<Link className="btn btn-primary" href="/events">Zu deinen Events</Link>}/></section></main>;
 
   return <main className="content">
     <PageHeading eyebrow="VORLAGEN" title="Leistungsbausteine" subtitle="Wiederverwendbare Leistungen für deine Sponsoringverträge." action={<button className="btn btn-primary" type="button" onClick={() => { setMessage(""); setEditingBlockId(null); setDraft(emptyDraft); setIconPickerOpen(false); setShowCreate(true); }}><Icon name="plus" size={16}/> Baustein erstellen</button>}/>

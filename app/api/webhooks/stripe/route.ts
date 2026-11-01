@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { recordVerifiedContractSignaturePayment, recordVerifiedEventPackagePayment, verifyStripeWebhookSignature, type StripeCheckoutSession } from "@/lib/stripe-checkout";
+import { recordVerifiedContractSignaturePayment, recordVerifiedEventPackagePayment, recordVerifiedEventProductPayment, verifyStripeWebhookSignature, type StripeCheckoutSession } from "@/lib/stripe-checkout";
 
 export async function POST(request: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -17,7 +17,9 @@ export async function POST(request: Request) {
     if (!session?.id) return NextResponse.json({ received: true });
     if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
       if (session.payment_status === "paid") {
-        if (session.metadata?.checkout_type === "event_package") {
+        if (session.metadata?.checkout_type === "event_product_payment") {
+          await recordVerifiedEventProductPayment(session, event.id);
+        } else if (session.metadata?.checkout_type === "event_package") {
           await recordVerifiedEventPackagePayment(session, event.id);
         } else {
           await recordVerifiedContractSignaturePayment(session);
@@ -25,7 +27,13 @@ export async function POST(request: Request) {
       }
     } else if (event.type === "checkout.session.expired") {
       const admin = createAdminClient();
+      const { error: eventPaymentError } = await admin.rpc("expire_event_product_payment", { target_session_id: session.id });
+      if (eventPaymentError) throw eventPaymentError;
       const { error } = await admin.rpc("expire_contract_signature_payment", { target_checkout_session_id: session.id });
+      if (error) throw error;
+    } else if (event.type === "checkout.session.async_payment_failed") {
+      const admin = createAdminClient();
+      const { error } = await admin.rpc("fail_event_product_payment", { target_session_id: session.id });
       if (error) throw error;
     }
     return NextResponse.json({ received: true });

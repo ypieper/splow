@@ -26,7 +26,16 @@ export async function GET(request: Request) {
     if (requestedEventId) assignmentQuery = assignmentQuery.eq("event_id", requestedEventId);
     const { data: allAssignments, error: assignmentError } = await assignmentQuery;
     if (assignmentError) throw assignmentError;
-    const assignments = (allAssignments ?? []).map(({ event_id, sponsor_id, account_id }) => ({ event_id, sponsor_id, account_id }));
+    let assignments = (allAssignments ?? []).map(({ event_id, sponsor_id, account_id }) => ({ event_id, sponsor_id, account_id }));
+    if (!assignments.length) return NextResponse.json({ profileRequired, profileName, events: [] }, { headers: { "Cache-Control": "no-store" } });
+
+    const portalEventChecks = await Promise.all([...new Set(assignments.map((item) => item.event_id))].map(async (eventId) => {
+      const { data, error } = await admin.rpc("event_feature_enabled", { target_event_id: eventId, target_feature: "sponsor_portal" });
+      if (error) throw error;
+      return data === true ? eventId : null;
+    }));
+    const portalEventIds = new Set(portalEventChecks.filter((eventId): eventId is string => Boolean(eventId)));
+    assignments = assignments.filter((assignment) => portalEventIds.has(assignment.event_id));
     if (!assignments.length) return NextResponse.json({ profileRequired, profileName, events: [] }, { headers: { "Cache-Control": "no-store" } });
 
     const eventIds = [...new Set(assignments.map((item) => item.event_id))];
@@ -68,12 +77,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ profileRequired, profileName, events }, { headers: { "Cache-Control": "no-store" } });
     }
     const eventsPromise = admin.from("events").select("id, organization_id, title, start_date, end_date, location, organizer_logo_path, contact_first_name, contact_last_name, contact_email, contact_phone").in("id", eventIds).then((result) => result);
+    const businessEventChecks = await Promise.all(eventIds.map(async (eventId) => {
+      const { data, error } = await admin.rpc("event_feature_enabled", { target_event_id: eventId, target_feature: "reports_tab" });
+      if (error) throw error;
+      return data === true ? eventId : null;
+    }));
+    const businessEventIds = businessEventChecks.filter((eventId): eventId is string => Boolean(eventId));
     const relatedResultsPromise = Promise.all([
       admin.from("sponsors").select("id, name").in("id", sponsorIds),
       admin.from("contracts").select("id, event_id, sponsor_id, title, value_cents, signature_status, sponsor_signed_at, organizer_signed_at, signed_at, signing_document_id, signature_declined_by, signature_declined_at, signature_decline_reason").in("event_id", eventIds),
       admin.from("tasks").select("id, event_id, sponsor_id, sponsor_name, benefit_id, title, due_at, status, source, workflow_order, workflow_instance, completion_type, requires_sponsor_approval, assigned_to_sponsor, sponsor_approval_status, sponsor_approved_at").in("event_id", eventIds),
       admin.from("benefits").select("id, event_id, sponsor_id, title, benefit_type, material_logistics, description, quantity, tasks_per_unit, status, due_at").in("event_id", eventIds).in("sponsor_id", sponsorIds),
-      admin.from("event_report_metrics").select("id, event_id, metric_name, metric_value").in("event_id", eventIds).order("created_at", { ascending: true }),
+      businessEventIds.length
+        ? admin.from("event_report_metrics").select("id, event_id, metric_name, metric_value").in("event_id", businessEventIds).order("created_at", { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
       admin.from("event_sponsor_invoices").select("id, event_id, sponsor_id, updated_at, sponsor_visible").in("event_id", eventIds).in("sponsor_id", sponsorIds),
       admin.from("sponsor_documents").select("id, event_id, sponsor_id, uploaded_at, uploaded_by_type, document_role, published_to_sponsor, status").in("event_id", eventIds).in("sponsor_id", sponsorIds),
       Promise.all(eventIds.map(async (eventId) => {

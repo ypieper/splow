@@ -34,6 +34,9 @@ export async function POST(request: Request, context: Context) {
   if (!task) return NextResponse.json({ error: "Die Aufgabe wurde nicht gefunden." }, { status: 404 });
   if (task.completion_type !== "sponsor_upload" || !task.assigned_to_sponsor) return NextResponse.json({ error: "Für diese Aufgabe ist kein Datei-Upload durch den Sponsor vorgesehen." }, { status: 409 });
   if (!task.event_id || !task.sponsor_id) return NextResponse.json({ error: "Die Aufgabe ist keinem Event-Sponsor zugeordnet." }, { status: 409 });
+  const { data: sponsorTaskEvidenceEnabled, error: featureError } = await admin.rpc("event_feature_enabled", { target_event_id: task.event_id, target_feature: "sponsor_task_evidence" });
+  if (featureError) return NextResponse.json({ error: "Die Paketberechtigung konnte nicht geprüft werden." }, { status: 503 });
+  if (sponsorTaskEvidenceEnabled !== true) return NextResponse.json({ error: "Sponsor-Aufgaben und Nachweise sind ab Professional verfügbar." }, { status: 403 });
 
   const { data: memberships, error: membershipError } = await admin.from("sponsor_account_members")
     .select("account_id")

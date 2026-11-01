@@ -95,7 +95,7 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
   baseBenefits: EventBenefit[];
   blocks: Block[];
 }) {
-  const { ensureFeature } = useEventEntitlements();
+  const { ensureFeature, hasFeature, requestUpgrade } = useEventEntitlements();
   const [signatureAddonEnabled, setSignatureAddonEnabled] = useState(false);
   const [addedBenefits, setAddedBenefits] = useState<EventBenefit[]>([]);
   const [availableBlocks, setAvailableBlocks] = useState(blocks);
@@ -105,6 +105,10 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
   const [subtasksUnavailable, setSubtasksUnavailable] = useState(false);
   const [organizerMembers, setOrganizerMembers] = useState<OrganizerMember[]>([]);
   const [adding, setAdding] = useState(false);
+  const [benefitLibraryEnabled, setBenefitLibraryEnabled] = useState<boolean | null>(null);
+  const [manualBenefitTitle, setManualBenefitTitle] = useState("");
+  const [manualBenefitDescription, setManualBenefitDescription] = useState("");
+  const [savingManualBenefit, setSavingManualBenefit] = useState(false);
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
   const [editingBlockKey, setEditingBlockKey] = useState("");
   const [benefitQuantities, setBenefitQuantities] = useState<Record<string, string>>({});
@@ -127,8 +131,9 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
   const [grossContractAmountManuallyEdited, setGrossContractAmountManuallyEdited] = useState(false);
   const [signedContractFile, setSignedContractFile] = useState<ContractDocument | null>(null);
   const [uploadedContract, setUploadedContract] = useState<ContractDocument | null>(null);
-  const [contractWorkflowMode, setContractWorkflowMode] = useState<"create" | "upload" | null>(null);
+  const [contractWorkflowMode, setContractWorkflowMode] = useState<"create" | "upload-pdf" | "upload" | null>(null);
   const [uploadingSignedContract, setUploadingSignedContract] = useState(false);
+  const [uploadingContractDraft, setUploadingContractDraft] = useState(false);
   const [deletingSignedContract, setDeletingSignedContract] = useState(false);
   const [deletingContractDocumentId, setDeletingContractDocumentId] = useState<string | null>(null);
   const [signingDocumentId, setSigningDocumentId] = useState(contract.signingDocumentId ?? "");
@@ -240,6 +245,15 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
     let cancelled = false;
     async function loadBenefitTemplates() {
       try {
+        if (!(await hasFeature(eventId, "benefit_library"))) {
+          if (!cancelled) {
+            setAvailableBlocks([]);
+            setBlocksLoadError("");
+            setBlocksLoadWarning("");
+            setSubtasksUnavailable(false);
+          }
+          return;
+        }
         const supabase = createClient();
         const { data, error } = await supabase
           .from("benefit_templates")
@@ -291,7 +305,7 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
 
     void loadBenefitTemplates();
     return () => { cancelled = true; };
-  }, []);
+  }, [eventId, hasFeature]);
 
   const benefits = useMemo(() => [...baseBenefits, ...addedBenefits], [baseBenefits, addedBenefits]);
   const filteredBenefits = benefits.filter((benefit) => benefitTypeFilter === "all" || (benefitTypeFilter === "in_kind" ? benefit.benefitType === "in_kind" || Boolean(benefit.materialLogistics?.trim()) : benefit.benefitType !== "in_kind" && !benefit.materialLogistics?.trim()));
@@ -371,6 +385,9 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
 
   async function openAddBenefits() {
     if (!(await ensureFeature(eventId, eventTitle, "benefits"))) return;
+    setBenefitLibraryEnabled(await hasFeature(eventId, "benefit_library"));
+    setManualBenefitTitle("");
+    setManualBenefitDescription("");
     setSelectedBlocks([]);
     setEditingBlockKey("");
     setBenefitQuantities({});
@@ -386,6 +403,31 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
     setBenefitQuantities({});
     setSubtaskDueDates({});
     setSubtaskAssignees({});
+  }
+
+  async function addManualBenefit() {
+    const title = manualBenefitTitle.trim();
+    if (!title) { setMessage("Bitte gib eine Bezeichnung für die Leistung ein."); return; }
+    if (!(await ensureFeature(eventId, eventTitle, "benefits"))) return;
+    setSavingManualBenefit(true);
+    try {
+      const result = await createStoredBenefits([{
+        eventId, sponsorId: sponsor.id, contractId: contract.id, title,
+        benefitType: "monetary", category: "Manuell", description: manualBenefitDescription.trim(),
+        status: "Offen", evidence: "Noch kein Nachweis", completionRequired: true,
+        quantity: 1, tasksPerUnit: true,
+      }]);
+      if (result.error) throw result.error;
+      const created = (result.data ?? []).map(storedBenefitToEventBenefit);
+      setAddedBenefits((current) => [...current, ...created]);
+      window.dispatchEvent(new Event("sponso:event-timeline-updated"));
+      setAdding(false);
+      setMessage("Manuelle Leistung wurde hinzugefügt.");
+    } catch {
+      setMessage("Die manuelle Leistung konnte nicht gespeichert werden.");
+    } finally {
+      setSavingManualBenefit(false);
+    }
   }
 
   async function openBenefitTaskEditor(benefit: EventBenefit) {
@@ -606,6 +648,7 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
           quantity: benefit.quantity,
           tasksPerUnit: benefit.tasksPerUnit,
           dueAt: benefit.dueAt,
+          templateId: eligible.find((block) => normalizeBenefitTitle(block.title) === normalizeBenefitTitle(benefit.title))?.id ?? null,
       })));
       if (result.error) throw result.error;
       const savedAdditions = result.data.map(storedBenefitToEventBenefit);
@@ -772,7 +815,7 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
       setMessage("Bitte lade den gezeichneten Vertrag als PDF-Datei hoch.");
       return;
     }
-    if (!(await ensureFeature(eventId, eventTitle, "contracts"))) return;
+    if (!(await ensureFeature(eventId, eventTitle, "contract_upload"))) return;
     setUploadingSignedContract(true);
     setMessage("");
     try {
@@ -794,6 +837,32 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
       setMessage("Der gezeichnete Vertrag wurde nicht vollständig gespeichert. Bitte versuche es erneut.");
     } finally {
       setUploadingSignedContract(false);
+    }
+  }
+
+  async function uploadContractDraft(file: File) {
+    if (uploadingContractDraft) return;
+    if (signedContractFile || contract.signatureStatus !== "draft") {
+      setMessage("Ein Vertragsentwurf kann nur vor Beginn der Zeichnung hochgeladen werden.");
+      return;
+    }
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setMessage("Bitte lade den Vertragsentwurf als PDF-Datei hoch.");
+      return;
+    }
+    if (!(await ensureFeature(eventId, eventTitle, "contract_upload"))) return;
+    setUploadingContractDraft(true);
+    setMessage("");
+    try {
+      const { data, error } = await saveContractDocument(contract.id, "uploaded_pdf", file, file.name);
+      if (error || !data) throw error ?? new Error("Die Datei konnte nicht gespeichert werden.");
+      setUploadedContract(data);
+      window.dispatchEvent(new Event("sponso:event-timeline-updated"));
+      setMessage("Der Vertragsentwurf wurde hochgeladen und kann zur Zeichnung freigegeben werden.");
+    } catch {
+      setMessage("Der Vertragsentwurf konnte nicht gespeichert werden.");
+    } finally {
+      setUploadingContractDraft(false);
     }
   }
 
@@ -929,7 +998,7 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
       setMessage("Füge zuerst mindestens eine Leistung hinzu, bevor du den Vertrag erstellst.");
       return;
     }
-    if (!(await ensureFeature(eventId, eventTitle, "contracts"))) return;
+    if (!(await ensureFeature(eventId, eventTitle, "contract_generation"))) return;
     setShowContractOutput(true);
     setContractTemplate(null);
     setTemplateLoadMessage("");
@@ -974,7 +1043,7 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
       setMessage("Ein gezeichneter Vertrag wurde hochgeladen. Lösche ihn zuerst, bevor du einen Vertrag erstellst.");
       return;
     }
-    if (!(await ensureFeature(eventId, eventTitle, "contracts"))) return;
+    if (!(await ensureFeature(eventId, eventTitle, "contract_generation"))) return;
     if (!contractTemplate) {
       setTemplateLoadMessage("Diesem Event ist keine Dokumentenvorlage zugeordnet. Ordne unter Einstellungen → Vertragsvorlage eine vorhandene Vorlage zu oder lade eine neue DOCX-Datei hoch.");
       return;
@@ -1054,6 +1123,7 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
   const hasCreatedContract = !signedContractFile && Boolean(generatedContracts?.pdf || generatedContracts?.docx || uploadedContract);
   const createModeBlocked = Boolean(signedContractFile);
   const uploadModeBlocked = hasCreatedContract || (!signedContractFile && (contract.signatureStatus === "pending_sponsor" || contract.signatureStatus === "pending_organizer"));
+  const draftUploadBlocked = hasCreatedContract || Boolean(signedContractFile) || contract.signatureStatus !== "draft";
   const createChoiceMessage = signedContractFile
     ? "Ein gezeichneter Vertrag wurde hochgeladen. Lösche ihn zuerst, bevor du einen Vertrag erstellst."
     : contract.signatureStatus !== "draft"
@@ -1082,8 +1152,9 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
         </div>
         <div className="contract-details-save"><button className="btn btn-primary" type="button" onClick={saveContractDetails}>Speichern</button></div>
       </section>
-      <section className="panel sponsor-contract-files"><div className="table-head"><div><h2>Vertrag</h2><p className="subtitle" style={{ fontSize: 11, marginTop: 4 }}>Wähle, ob du einen Vertrag aus einer Vorlage erstellen oder einen bereits gezeichneten Vertrag hinterlegen möchtest.</p></div></div>{benefits.length === 0 && <p className="field-message hint" role="status">Füge zuerst mindestens eine Leistung hinzu, bevor du einen Vertrag erstellst.</p>}<div className="contract-workflow-choice" role="group" aria-label="Vertragsweg auswählen"><button className={`contract-workflow-choice-button${contractWorkflowMode === "create" ? " active" : ""}`} type="button" aria-pressed={contractWorkflowMode === "create"} onClick={() => setContractWorkflowMode("create")}><Icon name="file" size={17}/><span><b>Vertrag erstellen</b><small className={createModeBlocked || contract.signatureStatus !== "draft" ? "blocked" : undefined}>{createChoiceMessage}</small></span></button><button className={`contract-workflow-choice-button${contractWorkflowMode === "upload" ? " active" : ""}`} type="button" aria-pressed={contractWorkflowMode === "upload"} onClick={() => setContractWorkflowMode("upload")}><Icon name="file" size={17}/><span><b>Gezeichneten Vertrag hochladen</b><small className={uploadModeBlocked ? "blocked" : undefined}>{uploadChoiceMessage}</small></span></button></div>
+      <section className="panel sponsor-contract-files"><div className="table-head"><div><h2>Vertrag</h2><p className="subtitle" style={{ fontSize: 11, marginTop: 4 }}>Erstelle einen Vertrag aus der Vorlage oder lade einen eigenen Vertragsentwurf hoch.</p></div></div>{benefits.length === 0 && <p className="field-message hint" role="status">Füge zuerst mindestens eine Leistung hinzu, bevor du einen Vertrag erstellst.</p>}<div className="contract-workflow-choice" role="group" aria-label="Vertragsweg auswählen"><button className={`contract-workflow-choice-button${contractWorkflowMode === "create" ? " active" : ""}`} type="button" aria-pressed={contractWorkflowMode === "create"} onClick={() => setContractWorkflowMode("create")}><Icon name="file" size={17}/><span><b>Vertrag erstellen</b><small className={createModeBlocked || contract.signatureStatus !== "draft" ? "blocked" : undefined}>{createChoiceMessage}</small></span></button><button className={`contract-workflow-choice-button${contractWorkflowMode === "upload-pdf" ? " active" : ""}`} type="button" aria-pressed={contractWorkflowMode === "upload-pdf"} onClick={() => setContractWorkflowMode("upload-pdf")}><Icon name="file" size={17}/><span><b>Vertragsentwurf hochladen</b><small className={draftUploadBlocked ? "blocked" : undefined}>{hasCreatedContract ? "Es ist bereits ein Vertragsdokument hinterlegt. Lösche es zuerst, um einen Entwurf hochzuladen." : draftUploadBlocked ? "Ein Entwurf kann nur vor Beginn der Zeichnung hochgeladen werden." : "PDF hochladen und anschließend digital zeichnen lassen."}</small></span></button><button className={`contract-workflow-choice-button${contractWorkflowMode === "upload" ? " active" : ""}`} type="button" aria-pressed={contractWorkflowMode === "upload"} onClick={() => setContractWorkflowMode("upload")}><Icon name="file" size={17}/><span><b>Gezeichneten Vertrag hochladen</b><small className={uploadModeBlocked ? "blocked" : undefined}>{uploadChoiceMessage}</small></span></button></div>
         {contractWorkflowMode === "create" && !createModeBlocked && <div className="contract-workflow-content"><p className="subtitle">Der Vertrag wird aus der hinterlegten Vorlage erstellt. Danach kannst du ihn dem Sponsor zur digitalen Zeichnung freigeben.</p>{contract.signatureStatus === "draft" && <div className="contract-file-actions"><button className="btn btn-primary" type="button" disabled={benefits.length === 0} title={benefits.length === 0 ? "Füge zuerst mindestens eine Leistung hinzu." : undefined} onClick={() => { void openContractOutput(); }}><Icon name="file" size={15}/> Vertrag erstellen</button></div>}</div>}
+        {contractWorkflowMode === "upload-pdf" && <div className="contract-workflow-content"><p className="subtitle">Der hochgeladene Entwurf kann nach der Zahlung zur digitalen Zeichnung freigegeben werden.</p><label className="settings-field signed-contract-upload-field"><span>Vertragsentwurf als PDF auswählen</span><input type="file" accept=".pdf,application/pdf" disabled={draftUploadBlocked || uploadingContractDraft} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void uploadContractDraft(file); }}/>{uploadingContractDraft && <small role="status">Vertragsentwurf wird hochgeladen …</small>}</label></div>}
         {contractWorkflowMode === "upload" && !uploadModeBlocked && <div className="contract-workflow-content"><p className="subtitle">Der Vertrag wird direkt als gezeichnet markiert. Eine digitale Zeichnung ist danach nicht möglich.{signedContractFile ? " Du kannst die vorhandene gezeichnete Datei hier ersetzen." : ""}</p><label className="settings-field signed-contract-upload-field"><span>{signedContractFile ? "Gezeichneten Vertrag ersetzen" : "Gezeichneten Vertrag als PDF auswählen"}</span><input type="file" accept=".pdf,application/pdf" disabled={uploadingSignedContract || deletingSignedContract} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void uploadExistingSignedContract(file); }}/>{uploadingSignedContract && <small role="status">Vertrag wird hochgeladen …</small>}</label></div>}
         {contractDocuments.length > 0 && ((contractWorkflowMode === "create" && !createModeBlocked && !signedContractFile) || (contractWorkflowMode === "upload" && !uploadModeBlocked && Boolean(signedContractFile))) && <div className="contract-document-list">{contractDocuments.map((document) => <article className={`contract-document-card${document.kind === "signed" ? " is-signed-contract" : ""}`} key={document.id}><div className="contract-document-file"><Icon name={document.kind === "signed" ? "check" : "file"} size={17}/><div><b>{document.kind === "signed" ? "Unterschriebene Vertragsfassung" : document.fileName}</b><small>{document.kind === "generated_pdf" ? "Erstellter Vertrag · PDF" : document.kind === "generated_docx" ? "Erstellter Vertrag · Word-Datei" : document.kind === "signed" ? "Von Sponsor und Veranstalter unterschrieben" : "Hochgeladener Vertragsentwurf"} · {new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(document.createdAt))}</small></div></div><div className="contract-document-actions"><button className="btn" type="button" onClick={async () => { const { data, error } = await downloadContractDocument(document); if (error || !data) { setMessage("Die Vertragsdatei konnte nicht geladen werden."); return; } downloadDocument(data, document.fileName); }}><Icon name="download" size={14}/> {document.kind === "signed" ? "Unterschriebene PDF herunterladen" : "Herunterladen"}</button><button className="btn signed-contract-delete" type="button" disabled={deletingContractDocumentId !== null || (document.kind === "signed" && deletingSignedContract) || (signingDocumentId === document.id && document.kind !== "signed" && contract.signatureStatus !== "draft")} onClick={() => { if (document.kind === "signed") void removeSignedContractFile(); else void removeContractDocument(document); }}>{document.kind === "signed" ? deletingSignedContract ? "Wird gelöscht …" : "Löschen" : deletingContractDocumentId === document.id ? "Wird gelöscht …" : "Löschen"}</button></div>{document.kind === "signed" ? <div className="signed-contract-sponsor-visibility signed-contract-sponsor-ready"><Icon name="check" size={15}/><span><b>Für den Sponsor verfügbar</b><small>Der Sponsor kann die unterschriebene PDF im Vertragsbereich herunterladen.</small></span></div> : signatureAddonEnabled && document.kind !== "generated_docx" && <label className="signed-contract-sponsor-visibility">
   <input type="checkbox" checked={signingDocumentId === document.id} disabled={contract.signatureNewVersionRequired || (contract.signatureStatus !== "draft" && !(contract.signatureStatus === "pending_sponsor" && !sponsorSigned)) || signingBusy || deletingContractDocumentId !== null} onChange={(event) => { if (event.currentTarget.checked) void setContractDocumentSponsorAccess(document, true); else if (contract.signatureStatus === "pending_sponsor") void revokeSponsorSigning(); else void setContractDocumentSponsorAccess(document, false); }}/>
@@ -1129,7 +1200,7 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
     }) : <p className="task-empty">Für diese Leistung wurden keine Unteraufgaben angelegt.</p>}</div><div className="create-modal-actions"><button className="btn" type="button" disabled={Boolean(savingBenefitId)} onClick={() => setEditingBenefit(null)}>Abbrechen</button><button className="btn btn-primary" type="button" disabled={Boolean(savingBenefitId)} onClick={() => { void saveBenefitTaskEdits(); }}>{savingBenefitId === editingBenefit.id ? "Wird gespeichert …" : "Änderungen speichern"}</button></div></Modal>}
     {adding && <Modal labelledBy="add-benefit-title" className="create-modal add-benefit-modal add-benefit-picker-modal" backdropClassName="modal-backdrop" role="dialog" onClose={closeAddBenefits}>
         <div className="create-modal-head"><div><h2 id="add-benefit-title">Leistungen hinzufügen</h2><p>Wähle links die Bausteine aus und richte rechts Anzahl und Aufgaben ein. Unteraufgaben werden nacheinander freigeschaltet.</p></div><button className="icon-button" type="button" aria-label="Dialog schließen" onClick={closeAddBenefits}><Icon name="close" size={16}/></button></div>
-        <div className="add-benefit-picker-layout">
+        {benefitLibraryEnabled === null ? <p className="task-empty">Leistungszugriff wird geprüft …</p> : benefitLibraryEnabled ? <div className="add-benefit-picker-layout">
           <section className="add-benefit-picker-list" aria-labelledby="add-benefit-picker-list-title">
             <div className="add-benefit-picker-section-head"><h3 id="add-benefit-picker-list-title">Leistungen</h3><span>{selectedBlocks.length} ausgewählt</span></div>
             {!blocksLoading && !blocksLoadError && blocksLoadWarning && <p className="task-feedback" role="status">{blocksLoadWarning}</p>}
@@ -1167,8 +1238,17 @@ export function EventSponsorDetail({ eventId, eventTitle, eventStartDate, eventE
               }); })()}</div>
             </> : <div className="add-benefit-picker-empty"><h3 id="add-benefit-picker-editor-title">Aufgaben einrichten</h3><p>Wähle links eine Leistung aus, um Anzahl, Fälligkeiten und Bearbeiter festzulegen.</p></div>}
           </section>
-        </div>
-        <div className="create-modal-actions"><button className="btn" type="button" onClick={closeAddBenefits}>Abbrechen</button><button className="btn btn-primary" type="button" onClick={addSelectedBlocks} disabled={selectedBlocks.length === 0}>Auswahl hinzufügen</button></div>
+        </div> : <div className="add-benefit-manual-layout">
+          <section className="add-benefit-manual-form">
+            <h3>Manuelle Leistung</h3>
+            <p>Lege eine individuelle Sponsorleistung ohne Bibliotheksbaustein an.</p>
+            <label className="settings-field"><span>Bezeichnung *</span><input value={manualBenefitTitle} onChange={(event) => setManualBenefitTitle(event.target.value)} placeholder="z. B. Logo auf der Eintrittskarte" maxLength={160}/></label>
+            <label className="settings-field"><span>Beschreibung</span><textarea value={manualBenefitDescription} onChange={(event) => setManualBenefitDescription(event.target.value)} rows={4} placeholder="Details zur vereinbarten Leistung" maxLength={2000}/></label>
+            <button className="btn btn-primary" type="button" disabled={savingManualBenefit || !manualBenefitTitle.trim()} onClick={() => { void addManualBenefit(); }}>{savingManualBenefit ? "Wird gespeichert …" : "Manuelle Leistung hinzufügen"}</button>
+          </section>
+          <aside className="add-benefit-library-upsell"><h3>Leistungsbibliothek</h3><p>Wiederverwendbare Leistungsbausteine und dazugehörige Aufgaben sind ab Professional verfügbar.</p><button className="btn" type="button" onClick={() => requestUpgrade(eventId, eventTitle)}>Pakete ansehen</button></aside>
+        </div>}
+        <div className="create-modal-actions"><button className="btn" type="button" onClick={closeAddBenefits}>Abbrechen</button>{benefitLibraryEnabled && <button className="btn btn-primary" type="button" onClick={addSelectedBlocks} disabled={selectedBlocks.length === 0}>Auswahl hinzufügen</button>}</div>
       </Modal>}
     {showContractOutput && <Modal labelledBy="contract-output-title" className="create-modal contract-output-modal" backdropClassName="modal-backdrop" role="dialog" onClose={() => setShowContractOutput(false)}>
         <div className="create-modal-head"><div><h2 id="contract-output-title">Vertrag erstellen</h2><p>Wähle das gewünschte Dateiformat für {sponsor.name}.</p></div><button className="icon-button" type="button" aria-label="Dialog schließen" onClick={() => setShowContractOutput(false)}><Icon name="close" size={16}/></button></div>

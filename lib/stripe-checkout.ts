@@ -89,6 +89,37 @@ export async function recordVerifiedEventPackagePayment(session: StripeCheckoutS
   return eventId;
 }
 
+export async function recordVerifiedEventProductPayment(session: StripeCheckoutSession, providerEventId: string) {
+  if (session.mode !== "payment" || session.payment_status !== "paid" || session.amount_total === null || session.currency !== "eur") {
+    throw new Error("Stripe event product payment is not complete");
+  }
+  const paymentId = session.metadata?.payment_id;
+  const eventId = session.metadata?.event_id;
+  const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+  if (session.metadata?.checkout_type !== "event_product_payment" || !paymentId || !eventId || !paymentIntentId) {
+    throw new Error("Stripe event product payment metadata is incomplete");
+  }
+
+  const admin = createAdminClient();
+  const { data: payment, error: paymentError } = await admin.from("event_product_payments")
+    .select("event_id")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (paymentError) throw paymentError;
+  if (!payment || payment.event_id !== eventId) throw new Error("Stripe event product payment does not match its reservation");
+
+  const { error } = await admin.rpc("record_event_product_payment", {
+    target_payment_id: paymentId,
+    target_session_id: session.id,
+    target_payment_intent_id: paymentIntentId,
+    target_paid_amount_cents: session.amount_total,
+    target_currency: session.currency,
+    target_provider_event_id: providerEventId,
+  });
+  if (error) throw error;
+  return eventId;
+}
+
 export function verifyStripeWebhookSignature(payload: string, header: string, secret: string) {
   const parts = header.split(",").map((part) => part.split("=", 2));
   const timestamp = parts.find(([key]) => key === "t")?.[1];

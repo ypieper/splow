@@ -14,9 +14,8 @@ import { EmptyState, Icon, Metric, PageHeading, Tabs } from "@/components/ui";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/client";
 import { eventLifecycleStage, useEventMetrics } from "@/lib/event-metrics";
-import { useEventEntitlements, type EventEntitlement } from "@/components/event-entitlements";
+import { useEventEntitlements, type EventEntitlement, type EventProductState } from "@/components/event-entitlements";
 import { eventPlanLabel } from "@/lib/event-plan-labels";
-import { eventContractPackageLabel } from "@/lib/event-contract-package-labels";
 
 function mergeSponsorRecords(current: SponsorRecord[], updates: SponsorRecord[]) {
   const records = new Map(updates.map((record) => [record.sponsor.id, record]));
@@ -29,8 +28,9 @@ export function CustomEventPage({ eventId, selectedTab, selectedSponsorId }: { e
   const [eventLogoUrl, setEventLogoUrl] = useState("");
   const [eventSponsors, setEventSponsors] = useState<SponsorRecord[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const { getEntitlement, getPackageBooking, loadEntitlement, requestUpgrade } = useEventEntitlements();
+  const { getEntitlement, getProductState, loadEntitlement, requestUpgrade } = useEventEntitlements();
   const [entitlement, setEntitlement] = useState<EventEntitlement | null>(null);
+  const [productState, setProductState] = useState<EventProductState | null>(null);
   const [packagePaymentNotice, setPackagePaymentNotice] = useState("");
   const eventMetrics = useEventMetrics(event ? [event.id] : []);
 
@@ -64,8 +64,11 @@ export function CustomEventPage({ eventId, selectedTab, selectedSponsorId }: { e
   useEffect(() => {
     let active = true;
     const load = async () => {
-      const current = getEntitlement(eventId) ?? await loadEntitlement(eventId);
-      if (active) setEntitlement(current);
+      const current = await loadEntitlement(eventId);
+      if (active) {
+        setEntitlement(current);
+        setProductState(getProductState(eventId));
+      }
     };
     void load();
     const refresh = (event: Event) => {
@@ -74,7 +77,7 @@ export function CustomEventPage({ eventId, selectedTab, selectedSponsorId }: { e
     };
     window.addEventListener("sponso:event-entitlement-updated", refresh);
     return () => { active = false; window.removeEventListener("sponso:event-entitlement-updated", refresh); };
-  }, [eventId, getEntitlement, loadEntitlement]);
+  }, [eventId, getProductState, loadEntitlement]);
 
   useEffect(() => {
     if (!event) return;
@@ -139,8 +142,7 @@ export function CustomEventPage({ eventId, selectedTab, selectedSponsorId }: { e
   if (!event) return <main className="content"><PageHeading eyebrow="EVENT" title="Event nicht gefunden" subtitle="Dieses Event ist nicht gespeichert."/><EmptyState title="Kein Event gefunden" description="Wähle ein vorhandenes Event aus oder lege ein neues an." action={<Link className="btn btn-primary" href="/events"><Icon name="calendar" size={14}/> Zur Eventübersicht</Link>} /></main>;
 
   const activeTab = selectedTab === "sponsoren" || selectedSponsorId ? "Sponsoren" : selectedTab === "leistungen" ? "Leistungen" : selectedTab === "aufgaben-nachweise" ? "Aufgaben & Nachweise" : selectedTab === "reports" ? "Reports" : "Übersicht";
-  const packageBooking = getPackageBooking(event.id);
-  const activePackage = event.contractPackage ?? (packageBooking ? { maxContracts: packageBooking.max_contracts, code: packageBooking.package_code } : null);
+  const currentPlanCode = entitlement?.plan_code ?? event.planCode;
   const selectedSponsorRecord = eventSponsors.find((record) => record.sponsor.id === selectedSponsorId);
   const selectedContract = selectedSponsorRecord?.contracts.find((contract) => contract.eventId === event.id);
   const currentEventMetrics = eventMetrics.byEvent[event.id] ?? { sponsorship: 0, signedSponsorship: 0, sponsors: 0, benefits: 0, trackedBenefits: 0, completed: 0, contracts: 0, contractsCreated: 0, contractsSigned: 0, reportsCreated: 0, reportsSent: 0, evidenceTasks: 0, completedEvidenceTasks: 0 };
@@ -149,7 +151,7 @@ export function CustomEventPage({ eventId, selectedTab, selectedSponsorId }: { e
   const signedSponsorship = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(currentEventMetrics.signedSponsorship);
 
   return <main className="content">
-    <div className="page-heading"><div className="event-page-heading-main">{eventLogoUrl && <span className="event-page-logo"><img src={eventLogoUrl} alt={`Logo für ${event.title}`}/></span>}<div><div className="eyebrow">EVENT</div><h1>{event.title}</h1><div className="event-heading-summary" aria-label="Event-Kennzahlen"><div><strong>{eventHeaderMetricsUnavailable ? "—" : signedSponsorship}</strong><span>Gezeichnetes Sponsoring-Volumen</span></div><div><strong>{eventHeaderMetricsUnavailable ? "—" : currentEventMetrics.sponsors}</strong><span>{currentEventMetrics.sponsors === 1 ? "Sponsor" : "Sponsoren"}</span></div></div><p className="subtitle">Stammdaten und Veranstaltungsdetails.</p></div></div><div className="event-heading-actions"><span className={`event-lifecycle-status event-lifecycle-${lifecycleStage.color}`}>Status: {eventMetrics.loading ? "Status wird geladen …" : lifecycleStage.label}</span><span className={`event-plan-badge ${event.planCode === "enterprise" ? "event-plan-enterprise" : activePackage ? "event-plan-contract-package" : `event-plan-${entitlement?.plan_code ?? event.planCode}`}`}>{event.planCode === "enterprise" ? "Tarif: Enterprise" : activePackage ? `Paket: ${eventContractPackageLabel(activePackage.maxContracts, activePackage.code)}` : `Tarif: ${eventPlanLabel(entitlement?.plan_code ?? event.planCode)}`}</span>{event.planCode !== "enterprise" && <button className="btn" type="button" onClick={() => requestUpgrade(event.id, event.title, activePackage ? "Gebuchtes Vertragspaket" : `Bis zu ${entitlement?.plan.max_sponsors ?? 1} Sponsoren`)}>{activePackage ? "Paketdetails" : (entitlement?.plan_code ?? event.planCode) === "free" ? "Paket auswählen" : "Tarif anzeigen"}</button>}<Link className="btn" href="/events"><Icon name="chevron" size={14}/> Alle Events</Link></div></div>
+    <div className="page-heading"><div className="event-page-heading-main">{eventLogoUrl && <span className="event-page-logo"><img src={eventLogoUrl} alt={`Logo für ${event.title}`}/></span>}<div><div className="eyebrow">EVENT</div><h1>{event.title}</h1><div className="event-heading-summary" aria-label="Event-Kennzahlen"><div><strong>{eventHeaderMetricsUnavailable ? "—" : signedSponsorship}</strong><span>Gezeichnetes Sponsoring-Volumen</span></div><div><strong>{eventHeaderMetricsUnavailable ? "—" : currentEventMetrics.sponsors}</strong><span>{currentEventMetrics.sponsors === 1 ? "Sponsor" : "Sponsoren"}</span></div></div><p className="subtitle">Stammdaten und Veranstaltungsdetails.</p></div></div><div className="event-heading-actions"><span className={`event-lifecycle-status event-lifecycle-${lifecycleStage.color}`}>Status: {eventMetrics.loading ? "Status wird geladen …" : lifecycleStage.label}</span><span className={`event-plan-badge event-plan-${currentPlanCode}`}>Paket: {eventPlanLabel(currentPlanCode)}</span>{productState && currentPlanCode !== "enterprise" && <span className="event-plan-quota">{productState.assigned_sponsors}/{productState.included_sponsors + productState.purchased_sponsor_slots} Sponsoren</span>}{currentPlanCode !== "enterprise" && <button className="btn" type="button" onClick={() => requestUpgrade(event.id, event.title, productState ? `Kontingent: ${productState.assigned_sponsors} von ${productState.included_sponsors + productState.purchased_sponsor_slots} Sponsoren` : "Paket und Sponsorenkontingent")}>{currentPlanCode === "free" ? "Paket auswählen" : "Paket verwalten"}</button>}<Link className="btn" href="/events"><Icon name="chevron" size={14}/> Alle Events</Link></div></div>
     <Tabs items={[{ label: "Übersicht", href: `/events/${event.id}` }, { label: "Sponsoren", href: `/events/${event.id}?tab=sponsoren` }, { label: "Leistungen", href: `/events/${event.id}?tab=leistungen` }, { label: "Aufgaben & Nachweise", href: `/events/${event.id}?tab=aufgaben-nachweise` }, { label: "Reports", href: `/events/${event.id}?tab=reports` }]} active={activeTab} />
     {packagePaymentNotice && <p className="field-message" role="status">{packagePaymentNotice}</p>}
     {activeTab === "Übersicht" && <><section className="metric-grid"><Metric label="Sponsoringvolumen netto" value={eventMetrics.loading || eventMetrics.error ? "—" : new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(eventMetrics.aggregate.sponsorship)} icon="spark"/><Metric label="Sponsoren" value={eventMetrics.loading || eventMetrics.error ? "—" : String(eventMetrics.aggregate.sponsors)} icon="users"/><Metric label="Leistungen" value={eventMetrics.loading || eventMetrics.error ? "—" : String(eventMetrics.aggregate.benefits)} icon="check"/><Metric label="Erledigt" value={eventMetrics.loading || eventMetrics.error ? "—" : `${eventMetrics.aggregate.trackedBenefits ? Math.round(eventMetrics.aggregate.completed / eventMetrics.aggregate.trackedBenefits * 100) : 0} %`} note={eventMetrics.loading || eventMetrics.error ? undefined : `${eventMetrics.aggregate.completed} von ${eventMetrics.aggregate.trackedBenefits} aufgabenrelevanten Leistungen`} icon="layers"/></section><EventOverviewDetails eventId={event.id} initialDetails={{ title: event.title, startDate: event.startDate, endDate: event.endDate, location: event.location, locationStreet: event.locationStreet, locationPostalCode: event.locationPostalCode, locationCity: event.locationCity, responsible: event.responsible, contactFirstName: event.contactFirstName ?? "", contactLastName: event.contactLastName ?? "", contactEmail: event.contactEmail ?? "", contactPhone: event.contactPhone ?? "", organizerLogoPath: event.organizerLogoPath, organizerLogoUrl: event.organizerLogoUrl ?? eventLogoUrl }} onDetailsSaved={(details) => setEvent((current) => current ? { ...current, ...details } : current)} /></>}

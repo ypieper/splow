@@ -30,6 +30,12 @@
 .add-benefit-picker-modal { display:flex; width:min(100%,1180px); height:min(86dvh,840px); max-height:92dvh; flex-direction:column; overflow:hidden; }
 .add-benefit-picker-modal > .create-modal-head,.add-benefit-picker-modal > .create-modal-actions { flex:none; }
 .add-benefit-picker-layout { display:grid; grid-template-columns:minmax(280px,.82fr) minmax(0,1.18fr); gap:16px; flex:1; min-height:0; }
+.add-benefit-manual-layout { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(220px,.8fr); gap:20px; align-items:start; overflow:auto; padding:2px 1px 14px; }
+.add-benefit-manual-form,.add-benefit-library-upsell { display:grid; gap:14px; padding:20px; border:1px solid var(--line,#dce5ed); border-radius:16px; background:var(--surface,#fff); }
+.add-benefit-manual-form h3,.add-benefit-library-upsell h3 { margin:0; color:var(--ink,#203246); }
+.add-benefit-manual-form p,.add-benefit-library-upsell p { margin:0; color:var(--muted,#7c8997); line-height:1.5; }
+.add-benefit-manual-form textarea { resize:vertical; }
+@media (max-width:700px) { .add-benefit-manual-layout { grid-template-columns:minmax(0,1fr); } }
 .add-benefit-picker-list,.add-benefit-picker-editor { min-width:0; min-height:0; overflow:auto; padding:14px; border:1px solid #e7edf1; border-radius:10px; background:#fbf9f4; }
 .add-benefit-picker-section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 12px; }
 .add-benefit-picker-section-head h3,.add-benefit-picker-empty h3 { margin:0; color:#354657; font-size:12px; }

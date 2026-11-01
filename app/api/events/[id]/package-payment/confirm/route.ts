@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getStripeCheckoutSession, recordVerifiedEventPackagePayment } from "@/lib/stripe-checkout";
+import { getStripeCheckoutSession, recordVerifiedEventProductPayment } from "@/lib/stripe-checkout";
 import { createClient } from "@/lib/supabase/server";
 
 type Context = { params: Promise<{ id: string }> };
@@ -22,13 +22,13 @@ export async function POST(request: Request, context: Context) {
 
   try {
     const session = await getStripeCheckoutSession(sessionId);
-    if (session.metadata?.event_id !== eventId || session.metadata?.checkout_type !== "event_package") {
+    if (session.metadata?.event_id !== eventId || session.metadata?.checkout_type !== "event_product_payment") {
       return NextResponse.json({ error: "Die Zahlung gehört nicht zu diesem Event." }, { status: 400 });
     }
     if (session.status !== "complete" || session.payment_status !== "paid") {
       return NextResponse.json({ error: "Die Zahlung wird noch von Stripe bestätigt." }, { status: 409 });
     }
-    await recordVerifiedEventPackagePayment(session, `checkout-confirm:${session.id}`);
+    await recordVerifiedEventProductPayment(session, `checkout-confirm:${session.id}`);
     return NextResponse.json({ confirmed: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("[events/package-payment] Return confirmation failed", error);
